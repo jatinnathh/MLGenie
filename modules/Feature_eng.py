@@ -65,7 +65,7 @@ def add_navigation_section():
                 if st.button("Continue to ML Training", type="primary", use_container_width=True):
                     st.session_state['feature_eng_data'] = df_to_download.copy()
                     st.session_state['from_feature_eng'] = True
-                    st.session_state['current_page'] = 'ML_training'  # Updated to match the correct page name
+                    st.session_state['current_page'] = 'ML training'  # Updated to match the correct page name
                     st.session_state['df_feature_eng'] = df_to_download.copy()  # Save the data for ML training
                     st.rerun()
 
@@ -104,10 +104,11 @@ def local_css():
     """, unsafe_allow_html=True)
 
 def app():
+    if 'current_page' not in st.session_state:
+        st.session_state['current_page'] = 'feature_eng'
+        
     local_css()
     st.title("MLGenie Feature Engineering")
-
-    ############## DATA UPLOAD ##################
     st.markdown('<div class="section-header"><h3>Data Input</h3></div>', unsafe_allow_html=True)
     if "df_feature_eng" in st.session_state:
         df = st.session_state.df_feature_eng.copy()
@@ -181,7 +182,10 @@ def app():
         # Show ML Training button if auto-engineering is completed
         if st.session_state.get('auto_eng_completed', False):
             if st.button("Continue to ML Training →", type="primary", use_container_width=True):
-                st.session_state['page'] = 'ml_training'
+                st.session_state['feature_eng_data'] = df.copy()
+                st.session_state['from_feature_eng'] = True
+                st.session_state['current_page'] = 'ML_training'
+                st.session_state['df_feature_eng'] = df.copy()
                 st.rerun()
                 
         with st.form("auto_engineering_form"):

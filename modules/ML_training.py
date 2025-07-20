@@ -7,285 +7,41 @@ from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.metrics import accuracy_score, mean_squared_error
 import numpy as np
 
-def load_professional_css():
+
+def local_css():
     st.markdown("""
-    <style>
-    /* Import Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
-    /* Global Styles */
-    .main .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-        max-width: 1200px;
-    }
-    
-    /* Typography */
-    h1, h2, h3, h4, h5, h6 {
-        font-family: 'Inter', sans-serif;
-        font-weight: 600;
-        color: #1a1a1a;
-        margin-bottom: 0.5rem;
-    }
-    
-    .main-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #2d3748;
-        margin-bottom: 0.5rem;
-    }
-    
-    /* Section Headers */
-    .section-header {
-        background: #f7fafc;
-        border-left: 4px solid #4a5568;
-        padding: 1rem 1.5rem;
-        margin: 2rem 0 1.5rem 0;
-        border-radius: 0 8px 8px 0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    
-    .section-header h3 {
-        margin: 0;
-        color: #2d3748;
-        font-size: 1.25rem;
-        font-weight: 600;
-    }
-    
-    /* Status Cards */
-    .status-card {
-        background: white;
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin: 1.5rem 0;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    
-    .status-card.success {
-        border-left: 4px solid #38a169;
-        background: #f0fff4;
-    }
-    
-    .status-card.warning {
-        border-left: 4px solid #d69e2e;
-        background: #fffaf0;
-    }
-    
-    .status-card h3 {
-        margin: 0 0 0.5rem 0;
-        color: #2d3748;
-        font-size: 1.1rem;
-    }
-    
-    .status-card p {
-        margin: 0;
-        color: #4a5568;
-        line-height: 1.5;
-    }
-    
-    /* Model Cards */
-    .model-card {
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin: 0.75rem 0;
-        transition: all 0.3s ease;
-        text-align: center;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    
-    .model-card:hover {
-        border-color: #4a5568;
-        box-shadow: 0 4px 12px rgba(74, 85, 104, 0.15);
-        transform: translateY(-2px);
-    }
-    
-    .model-card h4 {
-        margin: 0 0 0.5rem 0;
-        color: #2d3748;
-        font-size: 1.1rem;
-        font-weight: 600;
-    }
-    
-    .model-card p {
-        margin: 0;
-        color: #718096;
-        font-size: 0.9rem;
-    }
-    
-    /* Configuration Section */
-    .config-section {
-        background: white;
-        border-radius: 12px;
-        padding: 2rem;
-        margin: 1.5rem 0;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    
-    /* Results Section */
-    .results-section {
-        background: white;
-        border-radius: 12px;
-        padding: 2rem;
-        margin: 1.5rem 0;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    
-    .best-model-card {
-        background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 1.5rem;
-        text-align: center;
-        margin-top: 1rem;
-    }
-    
-    .best-model-card h4 {
-        margin: 0 0 0.5rem 0;
-        color: white;
-    }
-    
-    /* Navigation Cards */
-    .nav-card {
-        background: white;
-        border-radius: 12px;
-        padding: 1.5rem;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-        text-align: center;
-    }
-    
-    .nav-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    
-    .nav-card.primary {
-        border-left: 4px solid #4a5568;
-    }
-    
-    .nav-card.secondary {
-        border-left: 4px solid #38a169;
-    }
-    
-    /* Buttons */
-    .stButton > button {
-        font-family: 'Inter', sans-serif;
-        font-weight: 500;
-        border-radius: 8px;
-        padding: 0.75rem 1.5rem;
-        transition: all 0.3s ease;
-        border: none;
-        font-size: 0.95rem;
-    }
-    
-    .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
-        color: white;
-        box-shadow: 0 2px 8px rgba(74, 85, 104, 0.25);
-    }
-    
-    .stButton > button[kind="primary"]:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(74, 85, 104, 0.35);
-    }
-    
-    .stButton > button[kind="secondary"] {
-        background: white;
-        color: #4a5568;
-        border: 1px solid #e2e8f0;
-    }
-    
-    .stButton > button[kind="secondary"]:hover {
-        background: #f7fafc;
-        border-color: #cbd5e0;
-        transform: translateY(-1px);
-    }
-    
-    /* Form Controls */
-    .stSelectbox > div > div {
-        border-radius: 8px;
-        border-color: #e2e8f0;
-        font-family: 'Inter', sans-serif;
-    }
-    
-    .stMultiSelect > div > div {
-        border-radius: 8px;
-        border-color: #e2e8f0;
-    }
-    
-    .stRadio > div {
-        gap: 1rem;
-    }
-    
-    .stCheckbox > label {
-        font-family: 'Inter', sans-serif;
-        color: #4a5568;
-    }
-    
-    /* Metrics */
-    [data-testid="metric-container"] {
-        background: white;
-        border: 1px solid #e2e8f0;
-        padding: 1rem;
-        border-radius: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    
-    /* Progress Bar */
-    .stProgress > div > div > div {
-        background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
-        border-radius: 4px;
-    }
-    
-    /* Expander */
-    .streamlit-expanderHeader {
-        background: #f7fafc;
-        border-radius: 8px;
-        font-weight: 500;
-        color: #4a5568;
-    }
-    
-    /* Success/Error Messages */
-    .stAlert {
-        border-radius: 8px;
-        border: none;
-        padding: 1rem;
-    }
-    
-    .stSuccess {
-        background: #f0fff4;
-        color: #2f855a;
-        border-left: 4px solid #38a169;
-    }
-    
-    .stError {
-        background: #fed7d7;
-        color: #c53030;
-        border-left: 4px solid #e53e3e;
-    }
-    
-    .stInfo {
-        background: #ebf8ff;
-        color: #2b6cb0;
-        border-left: 4px solid #3182ce;
-    }
-    
-    .stWarning {
-        background: #fffaf0;
-        color: #b7791f;
-        border-left: 4px solid #d69e2e;
-    }
-    </style>
+        <style>
+        .stButton > button {
+            background-color: #ffffff;
+            color: #2e2e2e;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 0.5rem 1rem;
+            transition: all 0.3s ease;
+        }
+        .stButton > button:hover {
+            background-color: #f8f9fa;
+            border-color: #2e2e2e;
+            transform: translateY(-1px);
+        }
+        .main-action-btn > button {
+            background-color: #1f77b4;
+            color: white;
+            border: none;
+        }
+        .main-action-btn > button:hover {
+            background-color: #145c8e;
+        }
+        .section-header {
+            padding: 1rem 0;
+            border-bottom: 1px solid #f0f0f0;
+            margin-bottom: 1rem;
+        }
+        </style>
     """, unsafe_allow_html=True)
 
 def app():
-    load_professional_css()
+    local_css()
     
     # Main Title
     st.markdown('<h1 class="main-title">ML Training</h1>', unsafe_allow_html=True)
@@ -340,7 +96,7 @@ def app():
                 </div>
                 """, unsafe_allow_html=True)
                 if st.button("Go to Feature Engineering", use_container_width=True, type="primary"):
-                    st.session_state['page'] = 'Feature Engineering'
+                    st.session_state['current_page'] = 'feature_eng'
                     st.rerun()
             
             with col2:
@@ -351,7 +107,7 @@ def app():
                 </div>
                 """, unsafe_allow_html=True)
                 if st.button("Go to Visualize", use_container_width=True, type="secondary"):
-                    st.session_state['page'] = 'Visualize'
+                    st.session_state['current_page'] = 'visualize'
                     st.rerun()
             return
         
@@ -372,7 +128,7 @@ def app():
         with col1:
             st.dataframe(df.head(), use_container_width=True)
         with col2:
-            st.write("**Dataset Information**")
+            st.write("*Dataset Information*")
             info_df = pd.DataFrame({
                 'Column': df.columns,
                 'Type': df.dtypes.astype(str),
