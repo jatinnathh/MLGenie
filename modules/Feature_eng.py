@@ -4,7 +4,72 @@ import numpy as np
 import plotly.express as px
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, LabelEncoder
 
-# --- Only set_page_config in main app, not in this module ---
+def add_navigation_section():
+    if 'df_feature_eng' in st.session_state:
+        st.markdown("---")
+        col1, col2 = st.columns(2, gap="large")
+        
+        with col1:
+            with st.container():
+                st.markdown("""
+                <div class="nav-card download-card">
+                    <div class="nav-card-header">
+                        <h4>Export Dataset</h4>
+                    </div>
+                    <p class="nav-card-desc">Save your processed dataset for future use</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                df_to_download = st.session_state['df_feature_eng']
+                
+                # Download buttons with clean styling
+                csv = df_to_download.to_csv(index=False)
+                st.download_button(
+                    "Download CSV",
+                    csv,
+                    file_name="engineered_dataset.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    type="secondary"
+                )
+                
+                import io
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                    df_to_download.to_excel(writer, sheet_name='Data', index=False)
+                
+                st.download_button(
+                    "Download Excel",
+                    buffer.getvalue(),
+                    file_name="engineered_dataset.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    type="secondary"
+                )
+        
+        with col2:
+            with st.container():
+                st.markdown("""
+                <div class="nav-card continue-card">
+                    <div class="nav-card-header">
+                        <h4>Continue Workflow</h4>
+                    </div>
+                    <p class="nav-card-desc">Proceed to model training with your prepared data</p>
+                    <div class="dataset-info">
+                        <span class="info-label">Ready:</span>
+                        <span class="info-value">{:,} rows × {:,} features</span>
+                    </div>
+                </div>
+                """.format(df_to_download.shape[0], df_to_download.shape[1]), unsafe_allow_html=True)
+                
+                if st.button("Continue to ML Training", type="primary", use_container_width=True):
+                    st.session_state['feature_eng_data'] = df_to_download.copy()
+                    st.session_state['from_feature_eng'] = True
+                    st.session_state['current_page'] = 'ML_training'  # Updated to match the correct page name
+                    st.session_state['df_feature_eng'] = df_to_download.copy()  # Save the data for ML training
+                    st.rerun()
+
+
 
 def local_css():
     st.markdown("""
@@ -112,6 +177,13 @@ def app():
 
     with auto_tab:
         st.markdown("### Automated Feature Engineering")
+        
+        # Show ML Training button if auto-engineering is completed
+        if st.session_state.get('auto_eng_completed', False):
+            if st.button("Continue to ML Training →", type="primary", use_container_width=True):
+                st.session_state['page'] = 'ml_training'
+                st.rerun()
+                
         with st.form("auto_engineering_form"):
             auto_missing = st.checkbox("Handle Missing Values", value=True)
             auto_scaling = st.checkbox("Scale Numeric Features", value=True)
@@ -120,8 +192,10 @@ def app():
             submitted = st.form_submit_button("Run Auto-Engineering", use_container_width=True, type="primary")
             if submitted:
                 try:
+                    from sklearn.preprocessing import StandardScaler, LabelEncoder
                     progress_bar = st.progress(0)
                     status_text = st.empty()
+                    
                     if auto_missing:
                         status_text.text("Handling missing values...")
                         for col in df.columns:
@@ -131,12 +205,14 @@ def app():
                                 else:
                                     df[col] = df[col].fillna(df[col].mode()[0])
                         progress_bar.progress(25)
+                    
                     if auto_scaling:
                         status_text.text("Scaling numeric features...")
                         numeric_cols = df.select_dtypes(include=[np.number]).columns
                         if len(numeric_cols) > 0:
                             scaler = StandardScaler()
-                            df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
+                            scaled_data = scaler.fit_transform(df[numeric_cols])
+                            df[numeric_cols] = pd.DataFrame(scaled_data, columns=numeric_cols, index=df.index)
                         progress_bar.progress(50)
                     if auto_outliers:
                         status_text.text("Handling outliers...")
@@ -175,7 +251,6 @@ def app():
                 "One-Hot Encoding",
                 "Binning",
                 "Remove Duplicates",
-                "Add Missing Value Indicator Columns"
             ],
             key="basic_ops"
         )
@@ -237,6 +312,89 @@ def app():
                         st.success("Scaling completed successfully")
                     except Exception as e:
                         st.error(f"Error: {str(e)}")
+        elif basic_operation == "One-Hot Encoding":
+            cat_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+            if not cat_cols:
+                st.info("No categorical columns to encode.")
+            else:
+                selected_cols= st.multiselect("Select columns to one-hot encode", cat_cols)
+                drop_first=st.checkbox("Drop first category", value=True)
+
+                if selected_cols and st.button("Apply One-Hot Encoding ",use_container_width=True):
+                    try:
+                        df=pd.get_dummies(df,columns=selected_cols,drop_first=drop_first)
+                        st.session_state.df_feature_eng = df.copy()
+                        st.success("One-hot encoding applied successfully")
+                        st.info(f"Added {len(col for col in df.columns if any(sc in col for sc in selected_cols))} new columns")
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
+    
+        elif basic_operation == "Binning":
+            numeric_cols=df.select_dtypes(include=[np.number]).columns.tolist()
+            if not numeric_cols:
+                st.info("No numeric columns to bin.")
+            else:
+                selected_cols=st.selectbox("Select column to bin", numeric_cols)
+                if selected_cols:
+                    num_bins=st.slider("Select number of bins", 2, 20, 5)
+                    binning_type=st.radio("Binning strategy ",["Equal width","Equal frequency"])
+                    bin_labels=st.radio("Bin labels",["Numeric (0,1,2,...)", "Custom labels"])
+                    if bin_labels == "Custom labels":
+                        custom_labels_input = st.text_input(f"Enter {num_bins} custom labels (comma separated)", value="")
+                        placeholder="Low,Medium,High,,Very High , Extreme"
+                        if custom_labels_input:
+                            custom_labels = [label.strip() for label in custom_labels_input.split(",")]
+                        if len(custom_labels)!=num_bins:
+                            st.warning(f"please provide exactly {num_bins} labels")
+                            custom_labels=None
+                    
+                    if st.button("Apply Binning", use_container_width=True):
+                        try:
+                            new_col_name = f"{selected_cols}_binned"
+                            if binning_type == "Equal Width":
+                                df[new_col_name] = pd.cut(df[selected_cols], bins=num_bins, 
+                                                        labels=custom_labels if custom_labels else False)
+                            else:
+                                df[new_col_name] = pd.qcut(df[selected_cols], q=num_bins, 
+                                                        labels=custom_labels if custom_labels else False, 
+                                                        duplicates='drop')
+                            st.session_state.df_feature_eng = df.copy()
+                            st.success("Binning applied successfully")
+                            st.info(f"Created new column: {new_col_name}")
+                        except Exception as e:
+                            st.error(f"Error: {str(e)}")
+        elif basic_operation == "Remove Duplicates":
+            duplicate_count=df.duplicated().sum()
+            st.metric("Duplicate Rows found",duplicate_count)
+
+            if duplicate_count > 0:
+                if st.checkbox("Show duplicate rows"):
+                    duplicate_rows=df[df.duplicated(keep=False)]
+                    st.dataframe(duplicate_rows, use_container_width=True)
+                
+                keep_option=st.radio("Which duplicated to keep?",["Keep First","Keep Last","Remove All duplicates"])
+                if st.button("Remove Duplicates",use_container_width=True):
+                    try:
+                        if keep_option == "Keep First":
+                            df = df.drop_duplicates(keep='first')
+                        elif keep_option == "Keep Last":
+                            df = df.drop_duplicates(keep='last')
+                        else:  # Remove All duplicates
+                            df = df.drop_duplicates(keep=False)
+
+                        st.session_state.df_feature_eng = df.copy()
+                        st.success("Duplicates removed successfully")
+                        st.info(f"Dataset now has {df.shape[0]} rows")
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
+
+            else:
+
+                st.info("No duplicated found in dataset")
+
+
+
+
 
     ########## ADVANCED TAB #########
     with advanced_tab:
@@ -536,41 +694,15 @@ def app():
             fig = px.imshow(corr_matrix, title="Feature Correlation Matrix", color_continuous_scale="RdBu", aspect="auto")
             st.plotly_chart(fig, use_container_width=True)
 
-    ########## EXPORT ########
-    st.markdown('<div class="section-header"><h3>Export Data</h3></div>', unsafe_allow_html=True)
-    with st.expander("Final Data Preview"):
+    st.markdown("---")
+    st.markdown("### Final Dataset")
+    
+    with st.expander("Data Preview", expanded=False):
         st.dataframe(df.head(10), use_container_width=True)
         st.info(f"Final dataset shape: {df.shape[0]} rows × {df.shape[1]} columns")
-    col1, col2, col3 = st.columns([2, 2, 1])
-    with col1:
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="Download as CSV",
-            data=csv,
-            file_name="engineered_data.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-    with col2:
-        import io
-        try:
-            buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                df.to_excel(writer, index=False, sheet_name='Engineered Data')
-            excel_data = buffer.getvalue()
-            st.download_button(
-                label="Download as Excel",
-                data=excel_data,
-                file_name="engineered_data.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-        except ImportError:
-            st.info("To export as Excel, please install xlsxwriter via pip install xlsxwriter.")
-    with col3:
-        if st.button("Start Over", use_container_width=True):
-            del st.session_state.df_feature_eng
-            st.rerun()
+    
+    # Add navigation section
+    add_navigation_section()
 
-if __name__ == "_main_":
+if __name__ == "__main__":
     app()

@@ -6,7 +6,6 @@ from plotly.subplots import make_subplots
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Basic CSS for UI
 st.markdown("""
 <style>
     .stButton > button {
@@ -61,7 +60,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def app():
-    # Header with gradient background
     st.markdown("""
     <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2rem; border-radius: 15px; margin-bottom: 2rem; text-align: center;'>
         <h1 style='color: white; margin: 0; font-size: 2.5rem;'>Advanced Data Visualization Studio</h1>
@@ -69,7 +67,6 @@ def app():
     </div>
     """, unsafe_allow_html=True)
 
-    # Data input section with upload and sample data options
     st.markdown("### Choose Data Source")
     col1, col2 = st.columns(2)
     
@@ -89,7 +86,7 @@ def app():
     if use_sample:
         df = create_sample_data()
         st.session_state.df_visualize = df
-        st.success("✨ Sample data loaded successfully! Explore various visualizations with our comprehensive demo dataset.")
+        st.success("Sample data loaded successfully! Explore various visualizations with our comprehensive demo dataset.")
         
     if uploaded_file:
         if uploaded_file.name.endswith(".csv"):
@@ -107,15 +104,12 @@ def app():
         st.session_state.df_visualize = df
         st.success("Data uploaded and saved for Visualize!")
 
-    # Use persistent data if available
     if "df_visualize" in st.session_state:
         df = st.session_state.df_visualize
         st.success("Using previously uploaded data for Visualize.")
     else:
         st.info("Please upload a data file to begin.")
         return
-    
-    # Data overview
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.markdown(f'<div class="metric-card"><h3>{len(df)}</h3><p>Total Rows</p></div>', unsafe_allow_html=True)
@@ -568,6 +562,11 @@ def create_ridge_plot(df, value_col, category_col):
     """Create ridge plot using plotly"""
     categories = df[category_col].unique()
     
+    # Get custom colors for each category
+    colors = get_chart_colors(len(categories), 
+                            ["#4C72B0", "#55A868", "#C44E52", "#8172B3", "#CCB974", "#64B5CD"], 
+                            "ridge")
+    
     fig = go.Figure()
     
     for i, category in enumerate(categories):
@@ -578,7 +577,7 @@ def create_ridge_plot(df, value_col, category_col):
             name=str(category),
             side="positive",
             line_color="rgba(0,0,0,0.2)",
-            fillcolor=px.colors.qualitative.Set1[i % len(px.colors.qualitative.Set1)],
+            fillcolor=colors[i % len(colors)],
             opacity=0.7,
             showlegend=True
         ))
@@ -609,17 +608,21 @@ def create_calendar_heatmap(df, date_col, value_col):
     fig.update_layout(title="Calendar Heatmap", template="plotly_white")
     return fig
 
-def create_funnel_chart(df, stage_col, value_col):
+def create_funnel_chart(df, stage_col, value_col, colors=None):
     """Create funnel chart"""
     funnel_data = df.groupby(stage_col)[value_col].sum().reset_index()
     funnel_data = funnel_data.sort_values(value_col, ascending=False)
+    
+    # Default professional color palette if none provided
+    if colors is None:
+        colors = ["#4C72B0", "#55A868", "#C44E52", "#8172B3", "#CCB974", "#64B5CD"]
     
     fig = go.Figure(go.Funnel(
         y=funnel_data[stage_col],
         x=funnel_data[value_col],
         textinfo="value+percent previous",
         textposition="inside",
-        marker=dict(color=px.colors.sequential.Blues_r)
+        marker=dict(color=colors[:len(funnel_data)])
     ))
     
     fig.update_layout(title="Funnel Chart", template="plotly_white")
@@ -630,6 +633,11 @@ def create_gauge_chart(df, value_col, title="Gauge Chart"):
     value = df[value_col].mean()
     max_val = df[value_col].max()
     
+    # Get custom colors
+    colors = get_chart_colors(3, ["#00c7b7", "#E5E5E5", "#A9A9A9"], "gauge")
+    bar_color = colors[0]
+    step_colors = colors[1:]
+    
     fig = go.Figure(go.Indicator(
         mode="gauge+number+delta",
         value=value,
@@ -638,10 +646,10 @@ def create_gauge_chart(df, value_col, title="Gauge Chart"):
         delta={'reference': max_val * 0.8},
         gauge={
             'axis': {'range': [None, max_val]},
-            'bar': {'color': "#00c7b7"},
+            'bar': {'color': bar_color},
             'steps': [
-                {'range': [0, max_val * 0.5], 'color': "lightgray"},
-                {'range': [max_val * 0.5, max_val * 0.8], 'color': "gray"}
+                {'range': [0, max_val * 0.5], 'color': step_colors[0]},
+                {'range': [max_val * 0.5, max_val * 0.8], 'color': step_colors[1]}
             ],
             'threshold': {
                 'line': {'color': "red", 'width': 4},
@@ -658,6 +666,10 @@ def create_polar_chart(df, category_col, value_col):
     """Create polar chart"""
     polar_data = df.groupby(category_col)[value_col].sum().reset_index()
     
+    # Get custom color
+    colors = get_chart_colors(1, ["#4C72B0"], "polar")
+    color = colors[0]
+    
     fig = go.Figure()
     
     fig.add_trace(go.Scatterpolar(
@@ -665,7 +677,7 @@ def create_polar_chart(df, category_col, value_col):
         theta=polar_data[category_col],
         fill='toself',
         name='Values',
-        marker=dict(color='#00c7b7')
+        marker=dict(color=color)
     ))
     
     fig.update_layout(
@@ -708,6 +720,28 @@ def create_stream_graph(df, date_col, category_col, value_col):
     
     return fig
 
+# Color utility functions
+def get_chart_colors(num_colors=1, default_colors=None, key_prefix=""):
+    """Get custom colors for charts with color picker"""
+    if default_colors is None:
+        default_colors = ["#4C72B0", "#55A868", "#C44E52", "#8172B3", "#CCB974", "#64B5CD"]
+    
+    custom_colors = []
+    use_custom = st.checkbox("Customize colors", key=f"{key_prefix}_use_custom")
+    
+    if use_custom:
+        col1, col2 = st.columns(2)
+        with col1:
+            for i in range(num_colors):
+                color = st.color_picker(
+                    f"Color {i+1}", 
+                    default_colors[i % len(default_colors)], 
+                    key=f"{key_prefix}_color_{i}"
+                )
+                custom_colors.append(color)
+        return custom_colors
+    return default_colors[:num_colors]
+
 # Enhanced chart generation functions with the new charts
 def generate_distribution_chart(df, numeric_cols, cat_cols):
     """Enhanced distribution chart generation"""
@@ -723,9 +757,12 @@ def generate_distribution_chart(df, numeric_cols, cat_cols):
         with col3:
             marginal = st.selectbox("Marginal plot", ["None", "rug", "box", "violin"], key="hist_marginal")
         
+        # Get custom colors
+        colors = get_chart_colors(1, ["#4C72B0"], "hist")
+        
         fig = px.histogram(df, x=col, nbins=bins, opacity=opacity,
                           marginal=marginal if marginal != "None" else None,
-                          color_discrete_sequence=px.colors.qualitative.Set2)
+                          color_discrete_sequence=colors)
         fig.update_layout(title=f"Distribution of {col}", template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
     
@@ -733,12 +770,17 @@ def generate_distribution_chart(df, numeric_cols, cat_cols):
         col = st.selectbox("Select column", numeric_cols, key="violin_col")
         if cat_cols:
             group_by = st.selectbox("Group by (optional)", ["None"] + cat_cols, key="violin_group")
+            # Get custom colors for number of groups
+            num_groups = len(df[group_by].unique()) if group_by != "None" else 1
+            colors = get_chart_colors(num_groups, ["#4C72B0", "#55A868", "#C44E52", "#8172B3", "#CCB974"], "violin")
+            
             if group_by != "None":
-                fig = px.violin(df, y=col, x=group_by, box=True, points="all", color=group_by, color_discrete_sequence=px.colors.qualitative.Set2)
+                fig = px.violin(df, y=col, x=group_by, box=True, points="all", color=group_by, color_discrete_sequence=colors)
             else:
-                fig = px.violin(df, y=col, box=True, points="all", color_discrete_sequence=px.colors.qualitative.Set2)
+                fig = px.violin(df, y=col, box=True, points="all", color_discrete_sequence=colors)
         else:
-            fig = px.violin(df, y=col, box=True, points="all", color_discrete_sequence=px.colors.qualitative.Set2)
+            colors = get_chart_colors(1, ["#4C72B0"], "violin")
+            fig = px.violin(df, y=col, box=True, points="all", color_discrete_sequence=colors)
         
         fig.update_layout(title=f"Violin Plot of {col}", template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
@@ -748,6 +790,9 @@ def generate_distribution_chart(df, numeric_cols, cat_cols):
         try:
             import scipy.stats as stats
             from scipy.stats import gaussian_kde
+            
+            # Get custom colors
+            colors = get_chart_colors(4, ["#4C72B0", "#C44E52", "#55A868", "#8172B3"], "density")
             
             data = df[col].dropna()
             density = gaussian_kde(data)
@@ -760,6 +805,7 @@ def generate_distribution_chart(df, numeric_cols, cat_cols):
                 x=data,
                 name="Histogram",
                 histnorm='probability density',
+                marker_color=colors[0],
                 opacity=0.5
             ))
             # Add KDE
@@ -767,7 +813,7 @@ def generate_distribution_chart(df, numeric_cols, cat_cols):
                 x=xs,
                 y=ys,
                 name="KDE",
-                line=dict(color='red', width=2)
+                line=dict(color=colors[1], width=2)
             ))
             
             # Add normal distribution fit
@@ -777,7 +823,7 @@ def generate_distribution_chart(df, numeric_cols, cat_cols):
                 x=xs,
                 y=ys_norm,
                 name="Normal Fit",
-                line=dict(color='green', dash='dash', width=2)
+                line=dict(color=colors[2], dash='dash', width=2)
             ))
             
             # Add rug plot
@@ -785,7 +831,7 @@ def generate_distribution_chart(df, numeric_cols, cat_cols):
                 x=data,
                 y=np.zeros_like(data),
                 mode='markers',
-                marker=dict(symbol='line-ns', size=8),
+                marker=dict(symbol='line-ns', size=8, color=colors[3]),
                 name='Data Points',
                 opacity=0.5
             ))
@@ -816,12 +862,17 @@ def generate_distribution_chart(df, numeric_cols, cat_cols):
         col = st.selectbox("Select column", numeric_cols, key="box_col")
         if cat_cols:
             group_by = st.selectbox("Group by (optional)", ["None"] + cat_cols, key="box_group")
+            # Get custom colors for groups
+            num_groups = len(df[group_by].unique()) if group_by != "None" else 1
+            colors = get_chart_colors(num_groups, ["#4C72B0", "#55A868", "#C44E52", "#8172B3", "#CCB974"], "box")
+            
             if group_by != "None":
-                fig = px.box(df, y=col, x=group_by, color=group_by, color_discrete_sequence=px.colors.qualitative.Set2)
+                fig = px.box(df, y=col, x=group_by, color=group_by, color_discrete_sequence=colors)
             else:
-                fig = px.box(df, y=col, color_discrete_sequence=px.colors.qualitative.Set2)
+                fig = px.box(df, y=col, color_discrete_sequence=colors)
         else:
-            fig = px.box(df, y=col, color_discrete_sequence=px.colors.qualitative.Set2)
+            colors = get_chart_colors(1, ["#4C72B0"], "box")
+            fig = px.box(df, y=col, color_discrete_sequence=colors)
         fig.update_layout(title=f"Box Plot of {col}", template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
     
@@ -841,6 +892,9 @@ def generate_distribution_chart(df, numeric_cols, cat_cols):
         col = st.selectbox("Select column", numeric_cols, key="qq_col")
         try:
             from scipy import stats
+            # Get custom colors
+            colors = get_chart_colors(2, ["#4C72B0", "#C44E52"], "qq")
+            
             fig = go.Figure()
             data = df[col].dropna()
             qq_data = stats.probplot(data, dist="norm")
@@ -849,7 +903,7 @@ def generate_distribution_chart(df, numeric_cols, cat_cols):
                 y=qq_data[0][1],
                 mode='markers',
                 name='Q-Q Plot',
-                marker=dict(color='#00c7b7', size=8)
+                marker=dict(color=colors[0], size=8)
             ))
             # Add reference line
             slope, intercept = qq_data[1][0], qq_data[1][1]
@@ -859,7 +913,7 @@ def generate_distribution_chart(df, numeric_cols, cat_cols):
                 y=ref_line,
                 mode='lines',
                 name='Reference Line',
-                line=dict(color='red', dash='dash', width=2)
+                line=dict(color=colors[1], dash='dash', width=2)
             ))
             fig.update_layout(title=f"Q-Q Plot: {col}", template="plotly_white")
             st.plotly_chart(fig, use_container_width=True)
@@ -867,7 +921,8 @@ def generate_distribution_chart(df, numeric_cols, cat_cols):
             st.error("scipy is required for Q-Q plots")
     elif chart_type == "ecdf":
         col = st.selectbox("Select column", numeric_cols, key="ecdf_col")
-        fig = px.ecdf(df, x=col, color_discrete_sequence=px.colors.qualitative.Set2)
+        colors = get_chart_colors(1, ["#4C72B0"], "ecdf")
+        fig = px.ecdf(df, x=col, color_discrete_sequence=colors)
         fig.update_layout(title=f"ECDF: {col}", template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
 
@@ -882,12 +937,30 @@ def generate_categorical_chart(df, cat_cols, numeric_cols):
         
     chart_type = st.session_state.selected_chart
     
+    # Professional color palette
+    default_colors = ["#4C72B0", "#55A868", "#C44E52", "#8172B3", "#CCB974", "#64B5CD"]
+    
     if chart_type == "pie":
-        col = st.selectbox("Select categorical column", cat_cols, key="pie_col")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            col = st.selectbox("Select categorical column", cat_cols, key="pie_col")
+        with col2:
+            use_custom_colors = st.checkbox("Custom Colors", key="pie_custom_colors")
+        
         pie_df = df[col].value_counts().reset_index()
         pie_df.columns = [col, "count"]
-        fig = px.pie(pie_df, names=col, values="count", 
-                    color_discrete_sequence=px.colors.qualitative.Set2)
+        
+        if use_custom_colors:
+            unique_categories = pie_df[col].unique()
+            custom_colors = []
+            for i, cat in enumerate(unique_categories):
+                color = st.color_picker(f"Color for {cat}", default_colors[i % len(default_colors)], key=f"pie_color_{i}")
+                custom_colors.append(color)
+            fig = px.pie(pie_df, names=col, values="count", 
+                        color_discrete_sequence=custom_colors)
+        else:
+            fig = px.pie(pie_df, names=col, values="count", 
+                        color_discrete_sequence=default_colors)
         fig.update_layout(title=f"Pie Chart of {col}", template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
     elif chart_type == "sunburst":
@@ -1067,6 +1140,9 @@ def generate_relationship_chart(df, numeric_cols, cat_cols):
     chart_type = st.session_state.selected_chart
     
     if chart_type == "scatter":
+        # Professional color palette
+        default_colors = ["#4C72B0", "#55A868", "#C44E52", "#8172B3", "#CCB974", "#64B5CD"]
+        
         col1, col2, col3 = st.columns(3)
         with col1:
             x = st.selectbox("X axis", numeric_cols, key="scatter_x")
@@ -1075,10 +1151,23 @@ def generate_relationship_chart(df, numeric_cols, cat_cols):
         with col3:
             color = st.selectbox("Color by", ["None"] + cat_cols, key="scatter_color") if cat_cols else "None"
         
-        fig = px.scatter(df, x=x, y=y, 
+        col4, col5 = st.columns(2)
+        with col4:
+            point_color = st.color_picker("Point Color", default_colors[0], key="scatter_point_color")
+            show_trendline = st.checkbox("Add trendline", key="scatter_trend")
+        with col5:
+            if show_trendline:
+                trendline_color = st.color_picker("Trendline Color", "#FF6B6B", key="scatter_trendline_color")
+        
+        fig = px.scatter(df, x=x, y=y,
                         color=color if color != "None" else None,
-                        trendline="ols" if st.checkbox("Add trendline", key="scatter_trend") else None,
-                        color_discrete_sequence=px.colors.qualitative.Set2)
+                        trendline="ols" if show_trendline else None,
+                        color_discrete_sequence=[point_color] if color == "None" else default_colors)
+        
+        if show_trendline:
+            for trace in fig.data:
+                if trace.mode == "lines":
+                    trace.line.color = trendline_color
         fig.update_layout(title=f"Scatter Plot: {y} vs {x}", template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
     
@@ -1276,23 +1365,28 @@ def generate_timeseries_chart(df, numeric_cols, date_cols):
     """Generate time series charts"""
     chart_type = st.session_state.selected_chart
     
+    # Professional color palette
+    default_colors = ["#4C72B0", "#55A868", "#C44E52", "#8172B3", "#CCB974", "#64B5CD"]
+    
     if not date_cols:
         st.warning("No date columns found. Please ensure your data contains date/time columns.")
         return
     
     if chart_type == "timeseries":
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns([2, 2, 1])
         with col1:
             date_col = st.selectbox("Date column", date_cols, key="ts_date")
         with col2:
             value_col = st.selectbox("Value column", numeric_cols, key="ts_value")
+        with col3:
+            color = st.color_picker("Line Color", default_colors[0], key="ts_color")
         
         # Convert to datetime if needed
         if df[date_col].dtype == 'object':
             df[date_col] = pd.to_datetime(df[date_col])
         
         fig = px.line(df, x=date_col, y=value_col, 
-                     color_discrete_sequence=["#00c7b7"])
+                     color_discrete_sequence=[color])
         fig.update_layout(title=f"Time Series: {value_col}", template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
     elif chart_type == "seasonal":
@@ -1684,9 +1778,20 @@ if __name__ == "__main__":
     # Outlier Analysis
     if numeric_cols:
         st.markdown("### Outlier Analysis")
-        selected_num = st.selectbox("Select feature for outlier analysis", numeric_cols, key="dash_outlier")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            selected_num = st.selectbox("Select feature for outlier analysis", numeric_cols, key="dash_outlier")
+        with col2:
+            box_color = st.color_picker("Box Color", "#4C72B0", key="box_color")
+            
         fig = go.Figure()
-        fig.add_trace(go.Box(y=df[selected_num], name=selected_num))
+        fig.add_trace(go.Box(
+            y=df[selected_num], 
+            name=selected_num,
+            fillcolor=box_color,
+            line=dict(color=box_color),
+            marker=dict(color=box_color)
+        ))
         fig.update_layout(title=f"Box Plot: {selected_num}",
                          template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
