@@ -62,13 +62,12 @@ def add_navigation_section():
                 </div>
                 """.format(df_to_download.shape[0], df_to_download.shape[1]), unsafe_allow_html=True)
                 
-                if st.button("Continue to ML Training", type="primary", use_container_width=True):
+                if st.button("Continue to ML Training →", type="primary", use_container_width=True):
+                    # Use consistent session state key matching your main app
                     st.session_state['feature_eng_data'] = df_to_download.copy()
                     st.session_state['from_feature_eng'] = True
-                    st.session_state['current_page'] = 'ML training'  # Updated to match the correct page name
-                    st.session_state['df_feature_eng'] = df_to_download.copy()  # Save the data for ML training
+                    st.session_state.page = "ML Training"  # Use the correct key from main app
                     st.rerun()
-
 
 
 def local_css():
@@ -104,38 +103,49 @@ def local_css():
     """, unsafe_allow_html=True)
 
 def app():
-    if 'current_page' not in st.session_state:
-        st.session_state['current_page'] = 'feature_eng'
-        
+      
     local_css()
     st.title("MLGenie Feature Engineering")
     st.markdown('<div class="section-header"><h3>Data Input</h3></div>', unsafe_allow_html=True)
+    
     if "df_feature_eng" in st.session_state:
         df = st.session_state.df_feature_eng.copy()
         st.success("Dataset loaded successfully")
         col1, col2 = st.columns([3,1])
         with col2:
             if st.button("Load New Dataset", use_container_width=True):
-                del st.session_state.df_feature_eng
+                # Clean up all related session state
+                if 'df_feature_eng' in st.session_state:
+                    del st.session_state.df_feature_eng
+                if 'auto_eng_completed' in st.session_state:
+                    del st.session_state.auto_eng_completed
                 st.rerun()
     else:
         uploaded_file = st.file_uploader("Select your dataset (CSV/Excel)", type=["csv", "xlsx", "xls"], key="feature_eng_uploader")
         if uploaded_file is None:
             st.warning("Please upload a CSV or Excel file.")
             return
-        if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-        elif uploaded_file.name.endswith((".xlsx", ".xls")):
-            df = pd.read_excel(uploaded_file)
-        else:
-            st.error("Unsupported file format. Please upload a CSV or Excel file.")
+        
+        try:
+            if uploaded_file.name.endswith(".csv"):
+                df = pd.read_csv(uploaded_file)
+            elif uploaded_file.name.endswith((".xlsx", ".xls")):
+                df = pd.read_excel(uploaded_file)
+            else:
+                st.error("Unsupported file format. Please upload a CSV or Excel file.")
+                return
+                
+            if df.empty:
+                st.warning("The uploaded file is empty. Please upload a valid file.")
+                return
+                
+            st.session_state.df_feature_eng = df.copy()
+            st.success("Data uploaded and saved for Feature Engineering!")
+            
+        except Exception as e:
+            st.error(f"Error loading file: {str(e)}")
             return
-        if df.empty:
-            st.warning("The uploaded file is empty. Please upload a valid file.")
-            return
-        st.session_state.df_feature_eng = df.copy()
-        st.success("Data uploaded and saved for Feature Engineering!")
-
+        
     ############## DATA OVERVIEW ##################
     st.markdown('<div class="section-header"><h3>Dataset Overview</h3></div>', unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
@@ -184,7 +194,7 @@ def app():
             if st.button("Continue to ML Training →", type="primary", use_container_width=True):
                 st.session_state['feature_eng_data'] = df.copy()
                 st.session_state['from_feature_eng'] = True
-                st.session_state['current_page'] = 'ML_training'
+                st.session_state.page = "ML Training"
                 st.session_state['df_feature_eng'] = df.copy()
                 st.rerun()
                 
