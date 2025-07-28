@@ -5,10 +5,12 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-import modules.visualize as visualize
-import modules.ML_training as ML_training
-import modules.DL_training as DL_training
-import modules.Feature_eng as Feature_eng
+
+# Import modules correctly
+from modules import visualize
+from modules import ML_training
+from modules import DL_training  
+from modules import Feature_eng
 from utils.shared import apply_common_settings
 from utils.sidebar import custom_sidebar
 
