@@ -74,8 +74,8 @@ def add_navigation_section():
                     st.rerun()
     else:
         # If no valid dataframe is available, show a message
-        st.warning("⚠️ No processed dataset available. Please complete the feature engineering steps above to continue to ML Training.")
-        st.info("💡 Tip: Make sure to apply at least one transformation to activate the Continue button.")
+        st.warning("No processed dataset available. Please complete the feature engineering steps above to continue to ML Training.")
+        st.info("Tip: Make sure to apply at least one transformation to activate the Continue button.")
 
 
 def local_css():
@@ -194,8 +194,8 @@ def app():
     st.markdown('<div class="section-header"><h3>Feature Engineering Tools</h3></div>', unsafe_allow_html=True)
     
     # Target Column Protection
-    st.markdown("### 🎯 Target Column Protection")
-    st.info("💡 **Important:** Select your target column (what you want to predict) to protect it from feature engineering operations.")
+    st.markdown("### Target Column Protection")
+    st.info("**Important:** Select your target column (what you want to predict) to protect it from feature engineering operations.")
     
     target_protection_col = st.selectbox(
         "Select Target Column (optional but recommended)",
@@ -207,10 +207,10 @@ def app():
     # Store target column for protection
     if target_protection_col != "None - No Protection":
         st.session_state['protected_target_column'] = target_protection_col
-        st.success(f"✅ Target column '{target_protection_col}' is protected from transformations")
+        st.success(f"Target column '{target_protection_col}' is protected from transformations")
     else:
         st.session_state['protected_target_column'] = None
-        st.warning("⚠️ No target protection - all columns may be transformed")
+        st.warning("No target protection - all columns may be transformed")
     
     auto_tab, basic_tab, advanced_tab, quality_tab = st.tabs(["Auto-Engineering", "Basic Operations", "Advanced Features", "Data Quality"])
 
@@ -256,13 +256,13 @@ def app():
                         protected_target = st.session_state.get('protected_target_column', None)
                         if protected_target and protected_target in numeric_cols:
                             numeric_cols = [col for col in numeric_cols if col != protected_target]
-                            st.info(f"ℹ️ Target column '{protected_target}' excluded from scaling")
+                            st.info(f"Target column '{protected_target}' excluded from scaling")
                         
                         if len(numeric_cols) > 0:
                             scaler = StandardScaler()
                             scaled_data = scaler.fit_transform(df[numeric_cols])
                             df[numeric_cols] = pd.DataFrame(scaled_data, columns=numeric_cols, index=df.index)
-                            st.success(f"✅ Scaled {len(numeric_cols)} numeric features (target protected)")
+                            st.success(f"Scaled {len(numeric_cols)} numeric features (target protected)")
                         else:
                             st.info("No numeric features to scale (target column protected)")
                         progress_bar.progress(50)
@@ -274,7 +274,7 @@ def app():
                         protected_target = st.session_state.get('protected_target_column', None)
                         if protected_target and protected_target in numeric_cols:
                             numeric_cols = [col for col in numeric_cols if col != protected_target]
-                            st.info(f"ℹ️ Target column '{protected_target}' excluded from outlier handling")
+                            st.info(f"Target column '{protected_target}' excluded from outlier handling")
                         
                         for col in numeric_cols:
                             z_scores = np.abs((df[col] - df[col].mean()) / df[col].std())
@@ -289,7 +289,7 @@ def app():
                         protected_target = st.session_state.get('protected_target_column', None)
                         if protected_target and protected_target in cat_cols:
                             cat_cols = [col for col in cat_cols if col != protected_target]
-                            st.info(f"ℹ️ Target column '{protected_target}' excluded from encoding")
+                            st.info(f"Target column '{protected_target}' excluded from encoding")
                         
                         for col in cat_cols:
                             if df[col].nunique() < 10:
@@ -370,7 +370,7 @@ def app():
             protected_target = st.session_state.get('protected_target_column', None)
             if protected_target and protected_target in numeric_cols:
                 numeric_cols = [col for col in numeric_cols if col != protected_target]
-                st.info(f"ℹ️ Target column '{protected_target}' excluded from scaling options")
+                st.info(f"Target column '{protected_target}' excluded from scaling options")
             
             if not numeric_cols:
                 st.warning("No numeric features available for scaling (target column protected)")
@@ -386,7 +386,7 @@ def app():
                                 scaler = MinMaxScaler()
                             df[cols_to_scale] = scaler.fit_transform(df[cols_to_scale])
                             st.session_state.df_feature_eng = df.copy()
-                            st.success(f"✅ Scaling completed successfully for {len(cols_to_scale)} features")
+                            st.success(f"Scaling completed successfully for {len(cols_to_scale)} features")
                         except Exception as e:
                             st.error(f"Error: {str(e)}")
         elif basic_operation == "One-Hot Encoding":
@@ -396,7 +396,7 @@ def app():
             protected_target = st.session_state.get('protected_target_column', None)
             if protected_target and protected_target in cat_cols:
                 cat_cols = [col for col in cat_cols if col != protected_target]
-                st.info(f"ℹ️ Target column '{protected_target}' excluded from encoding options")
+                st.info(f"Target column '{protected_target}' excluded from encoding options")
             
             if not cat_cols:
                 st.info("No categorical columns available for encoding (target column protected)")
@@ -408,7 +408,7 @@ def app():
                     try:
                         df = pd.get_dummies(df, columns=selected_cols, drop_first=drop_first)
                         st.session_state.df_feature_eng = df.copy()
-                        st.success(f"✅ One-hot encoding applied successfully for {len(selected_cols)} columns")
+                        st.success(f"One-hot encoding applied successfully for {len(selected_cols)} columns")
                         new_cols = [col for col in df.columns if any(sc in col for sc in selected_cols)]
                         st.info(f"Added {len(new_cols)} new columns")
                     except Exception as e:
