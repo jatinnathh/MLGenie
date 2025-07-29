@@ -70,6 +70,7 @@ def add_navigation_section():
                     # Use consistent session state key matching your main app
                     st.session_state['feature_eng_data'] = df_to_download.copy()
                     st.session_state['from_feature_eng'] = True
+                    # st.session_state['df_feature_eng'] = df.copy()
                     st.session_state.page = "ML Training"  # Use the correct key from main app
                     st.rerun()
     else:
@@ -207,6 +208,7 @@ def app():
     # Store target column for protection
     if target_protection_col != "None - No Protection":
         st.session_state['protected_target_column'] = target_protection_col
+        st.session_state['selected_target_column'] = target_protection_col
         st.success(f"Target column '{target_protection_col}' is protected from transformations")
     else:
         st.session_state['protected_target_column'] = None

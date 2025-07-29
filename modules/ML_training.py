@@ -7,6 +7,7 @@ import time
 import pickle
 import json
 import warnings
+import traceback
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge, Lasso
@@ -16,7 +17,6 @@ from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, mean_squared_error, mean_absolute_error, r2_score
 from sklearn.preprocessing import StandardScaler, LabelEncoder, MinMaxScaler
-import warnings
 warnings.filterwarnings('ignore')
 
 def local_css():
@@ -405,55 +405,161 @@ class DataPreprocessor:
             X_processed[col] = le.fit_transform(X_processed[col].astype(str))
             self.label_encoders[col] = le
         
+        # Convert all columns to numeric to handle mixed data types
+        for col in X_processed.columns:
+            if X_processed[col].dtype == 'object':
+                try:
+                    X_processed[col] = pd.to_numeric(X_processed[col], errors='coerce')
+                    X_processed[col] = X_processed[col].fillna(0)
+                except:
+                    pass
+        
         # Scale features
         self.feature_scaler = StandardScaler()
         X_scaled = self.feature_scaler.fit_transform(X_processed)
         X_scaled = pd.DataFrame(X_scaled, columns=X_processed.columns, index=X_processed.index)
         
-        # Handle target scaling for regression
+        # Handle target variable - ensure it's always returned properly
         y_scaled = y
-        if y is not None and target_scaling != 'none':
-            y_scaled = self._fit_transform_target(y, target_scaling)
+        if y is not None:
+            # For regression tasks with numeric targets, apply scaling
+            if target_scaling != 'none' and pd.api.types.is_numeric_dtype(y):
+                y_scaled = self._fit_transform_target(y, target_scaling)
+            else:
+                # For classification or non-scalable targets, return as-is
+                y_scaled = y.copy() if hasattr(y, 'copy') else y
         
         return X_scaled, y_scaled
     
     def transform_features(self, X):
-        """Transform new data using fitted preprocessors"""
+        """Transform new data using fitted preprocessors - ENHANCED for raw input"""
+        st.info(f"🔍 INPUT DEBUG: Received {X.shape[0]} rows, {X.shape[1]} columns")
+        st.info(f"🔍 INPUT COLUMNS: {list(X.columns)}")
+        st.info(f"🔍 INPUT VALUES: {X.iloc[0].to_dict()}")
+        
         X_processed = X.copy()
         
-        # Handle missing values
-        for col in X_processed.columns:
-            if X_processed[col].isnull().sum() > 0:
-                if col in self.numerical_features:
-                    X_processed[col] = X_processed[col].fillna(0)  # Use 0 for new data
-                else:
-                    X_processed[col] = X_processed[col].fillna('Unknown')
+        # ENHANCED LOGIC: Check if input contains ONLY truly original features
+        # Original features are ones without encoded suffixes, one-hot prefixes, etc.
+        truly_original_features = []
+        engineered_feature_patterns = ['_encoded', '_A (agr)', '_C (all)', '_FV', '_I (all)', '_RH', '_RL', '_RM', 
+                                     '_Grvl', '_Pave', '_IR1', '_IR2', '_IR3', '_Reg', '_Bnk', '_HLS', '_Low', '_Lvl',
+                                     '_AllPub', '_NoSeWa', '_NoSewr', '_Corner', '_CulDSac', '_FR2', '_FR3', '_Inside',
+                                     '_Gtl', '_Mod', '_Sev', '_Artery', '_Feedr', '_Norm', '_PosA', '_PosN', '_RRAe',
+                                     '_RRAn', '_RRNe', '_RRNn', '_1Fam', '_2fmCon', '_Duplex', '_Twnhs', '_TwnhsE',
+                                     '_1.5Fin', '_1.5Unf', '_1Story', '_2.5Fin', '_2.5Unf', '_2Story', '_SFoyer', '_SLvl',
+                                     '_Flat', '_Gable', '_Gambrel', '_Hip', '_Mansard', '_Shed', '_ClyTile', '_CompShg',
+                                     '_Membran', '_Metal', '_Roll', '_Tar&Grv', '_WdShake', '_WdShngl', '_BrkCmn',
+                                     '_BrkFace', '_CBlock', '_Stone', '_Ex', '_Fa', '_Gd', '_TA', '_Po', '_BrkTil',
+                                     '_PConc', '_Slab', '_Wood', '_Av', '_Mn', '_No', '_ALQ', '_BLQ', '_GLQ', '_LwQ',
+                                     '_Rec', '_Unf', '_Floor', '_GasA', '_GasW', '_Grav', '_OthW', '_Wall', '_N', '_Y',
+                                     '_FuseA', '_FuseF', '_FuseP', '_Mix', '_SBrkr', '_Maj1', '_Maj2', '_Min1', '_Min2',
+                                     '_Sal', '_Sev', '_Typ', '_2Types', '_Attchd', '_Basment', '_BuiltIn', '_CarPort',
+                                     '_Detchd', '_Fin', '_RFn', '_P', '_GdPrv', '_GdWo', '_MnPrv', '_MnWw', '_Elev',
+                                     '_Gar2', '_Othr', '_Shed', '_TenC', '_Abnorml', '_AdjLand', '_Alloca', '_Family',
+                                     '_Normal', '_Partial']
         
-        # Apply label encoding
-        for col in self.categorical_features:
-            if col in X_processed.columns and col in self.label_encoders:
-                try:
-                    X_processed[col] = self.label_encoders[col].transform(X_processed[col].astype(str))
-                except ValueError:
-                    # Handle unseen categories
+        for col in X_processed.columns:
+            is_engineered = any(pattern in col for pattern in engineered_feature_patterns)
+            if not is_engineered:
+                truly_original_features.append(col)
+        
+        # Check if this is truly raw input (only original features, no engineered ones)
+        has_only_original = len(truly_original_features) == len(X_processed.columns)
+        has_engineered = any(pattern in col for col in X_processed.columns for pattern in engineered_feature_patterns)
+        
+        st.info(f"🔍 FEATURE ANALYSIS:")
+        st.info(f"  - Truly original features: {len(truly_original_features)}")
+        st.info(f"  - Total input features: {len(X_processed.columns)}")
+        st.info(f"  - Has engineered features: {has_engineered}")
+        st.info(f"  - Is pure raw input: {has_only_original}")
+        
+        # Get original feature list to detect if user provided raw features only
+        stored_categorical = self.categorical_features if hasattr(self, 'categorical_features') else []
+        stored_numerical = self.numerical_features if hasattr(self, 'numerical_features') else []
+        original_from_training = [col for col in stored_categorical + stored_numerical 
+                                if not any(pattern in col for pattern in engineered_feature_patterns)]
+        
+        is_raw_input = has_only_original and not has_engineered
+        
+        st.info(f"🔍 PROCESSING TYPE: {'Pure raw input' if is_raw_input else 'Feature-engineered input'}")
+        st.info(f"🔍 ORIGINAL FEATURES FROM TRAINING: {original_from_training}")
+        st.info(f"🔍 EXPECTED FEATURES: {self.feature_names}")
+        
+        if is_raw_input:
+            st.info("🔄 Processing pure raw input - recreating ALL engineered features...")
+            
+            # Step 1: Handle missing values in original features
+            for col in X_processed.columns:
+                if X_processed[col].isnull().sum() > 0:
+                    if col in stored_numerical:
+                        X_processed[col] = X_processed[col].fillna(0)
+                        st.info(f"🔍 Filled missing numeric values in {col}")
+                    else:
+                        X_processed[col] = X_processed[col].fillna('Unknown')
+                        st.info(f"🔍 Filled missing categorical values in {col}")
+            
+            # Step 2: Apply label encoding to categorical features that need it
+            for col in stored_categorical:
+                if col in X_processed.columns and col in self.label_encoders:
+                    original_val = X_processed[col].iloc[0]
+                    try:
+                        # Apply the fitted label encoder
+                        encoded_values = self.label_encoders[col].transform(X_processed[col].astype(str))
+                        X_processed[col] = encoded_values
+                        st.info(f"🔍 ENCODED {col}: '{original_val}' → {encoded_values[0]}")
+                    except ValueError as e:
+                        # Handle unseen categories - assign a default value
+                        st.warning(f"Unseen category in {col}: '{original_val}', using default encoding 0")
+                        X_processed[col] = 0
+            
+            # Step 3: Add ALL missing engineered features with default values
+            for col in self.feature_names:
+                if col not in X_processed.columns:
+                    X_processed[col] = 0
+                    st.info(f"🔍 Added missing engineered feature '{col}' = 0")
+        
+        else:
+            # Feature-engineered input - minimal processing
+            st.info("🔄 Processing feature-engineered input...")
+            
+            # Handle missing values
+            for col in X_processed.columns:
+                if X_processed[col].isnull().sum() > 0:
+                    if col in stored_numerical:
+                        X_processed[col] = X_processed[col].fillna(0)
+                    else:
+                        X_processed[col] = X_processed[col].fillna('Unknown')
+            
+            # Apply label encoding only to categorical features that haven't been encoded yet
+            for col in stored_categorical:
+                if col in X_processed.columns and col in self.label_encoders:
+                    if X_processed[col].dtype == 'object':  # Only if not already encoded
+                        try:
+                            X_processed[col] = self.label_encoders[col].transform(X_processed[col].astype(str))
+                        except ValueError:
+                            X_processed[col] = 0
+            
+            # Ensure all features are present
+            for col in self.feature_names:
+                if col not in X_processed.columns:
                     X_processed[col] = 0
         
-        # Ensure all columns are present and in correct order
-        for col in self.feature_names:
-            if col not in X_processed.columns:
-                X_processed[col] = 0
-        
+        # Ensure correct column order
         X_processed = X_processed[self.feature_names]
         
-        # Convert to numeric
+        st.info(f"🔍 BEFORE SCALING: First few features = {dict(list(X_processed.iloc[0].items())[:5])}")
+        
+        # Convert to numeric (safety check)
         for col in X_processed.columns:
             if X_processed[col].dtype == 'object':
                 X_processed[col] = pd.to_numeric(X_processed[col], errors='coerce').fillna(0)
         
-        # Scale features
+        # Apply feature scaling
         if self.feature_scaler:
             X_scaled = self.feature_scaler.transform(X_processed)
             X_scaled = pd.DataFrame(X_scaled, columns=X_processed.columns, index=X_processed.index)
+            st.info(f"🔍 AFTER SCALING: First few features = {dict(list(X_scaled.iloc[0].items())[:5])}")
             return X_scaled
         
         return X_processed
@@ -558,23 +664,23 @@ def train_model_real(model_name, X_train, y_train, X_test, y_test, problem_type,
                     patience_counter += 1
                 
                 # Update progress every 10 iterations
-                if iteration % 10 == 0 or iteration <= 10 or iteration >= max_iterations - 5:
-                    progress = (iteration / max_iterations) * 100
-                    elapsed_time = time.time() - start_time
-                    eta = (elapsed_time / iteration) * (max_iterations - iteration)
+         
+                progress = (iteration / max_iterations) * 100
+                elapsed_time = time.time() - start_time
+                eta = (elapsed_time / iteration) * (max_iterations - iteration)
+                
+                with progress_placeholder.container():
+                    st.markdown(create_animated_progress(progress, f"Training {model_name}"), unsafe_allow_html=True)
                     
-                    with progress_placeholder.container():
-                        st.markdown(create_animated_progress(progress, f"Training {model_name}"), unsafe_allow_html=True)
-                        
-                        col1, col2, col3, col4 = st.columns(4)
-                        with col1:
-                            st.metric("Iteration", f"{iteration}/{max_iterations}")
-                        with col2:
-                            st.metric("Progress", f"{progress:.1f}%")
-                        with col3:
-                            st.metric(f"Best {score_name}", f"{best_score:.3f}")
-                        with col4:
-                            st.metric("ETA", f"{eta:.1f}s")
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Iteration", f"{iteration}/{max_iterations}")
+                    with col2:
+                        st.metric("Progress", f"{progress:.1f}%")
+                    with col3:
+                        st.metric(f"Best {score_name}", f"{best_score:.3f}")
+                    with col4:
+                        st.metric("ETA", f"{eta:.1f}s")
                 
                 # Early stopping
                 if patience_counter >= patience and iteration > 20:
@@ -827,7 +933,6 @@ def make_prediction_consistent(model_name, input_data, training_config):
             
     except Exception as e:
         st.error(f"Prediction error: {str(e)}")
-        import traceback
         st.error(f"Traceback: {traceback.format_exc()}")
         return None
 
@@ -937,9 +1042,43 @@ def app():
                         st.error("The uploaded file is empty. Please upload a valid file.")
                         return
                     
-                    st.session_state.df_feature_eng = df.copy()
-                    st.success("Data uploaded successfully!")
-                    st.dataframe(df.head(), use_container_width=True)
+                    # Clean data to prevent Arrow serialization issues
+                    df_clean = df.copy()
+                    for col in df_clean.columns:
+                        # Convert nullable integer types to regular int/float
+                        if df_clean[col].dtype in ['Int64', 'Float64', 'boolean']:
+                            df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
+                        # Handle object columns that might have mixed types
+                        elif df_clean[col].dtype == 'object':
+                            # First, try to convert to numeric
+                            numeric_series = pd.to_numeric(df_clean[col], errors='coerce')
+                            non_numeric_count = numeric_series.isna().sum()
+                            total_count = len(df_clean[col])
+                            
+                            # If more than 50% can be converted to numeric, treat as numeric
+                            if non_numeric_count < total_count * 0.5:
+                                df_clean[col] = numeric_series
+                            else:
+                                # Otherwise, ensure it's string type
+                                df_clean[col] = df_clean[col].astype(str)
+                        # Handle any remaining problematic types
+                        elif str(df_clean[col].dtype).startswith('Int') or str(df_clean[col].dtype).startswith('Float'):
+                            df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
+                    
+                    # Final check - ensure no remaining problematic dtypes
+                    for col in df_clean.columns:
+                        if str(df_clean[col].dtype) in ['Int64', 'Float64', 'boolean'] or 'Int' in str(df_clean[col].dtype):
+                            df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
+                    
+                    st.session_state.df_feature_eng = df_clean.copy()
+                    st.success("Data uploaded and cleaned successfully!")
+                    
+                    # Show basic info about the cleaned data
+                    st.info(f"Data cleaning summary:")
+                    st.info(f"  - Shape: {df_clean.shape}")
+                    st.info(f"  - Data types: {df_clean.dtypes.value_counts().to_dict()}")
+                    
+                    st.dataframe(df_clean.head(), use_container_width=True)
                     
                     if st.button("Continue to Data Analysis →", type="primary", use_container_width=True):
                         st.session_state.training_step = 2
@@ -967,6 +1106,16 @@ def app():
     # Step 2: Data Analysis
     if st.session_state.training_step == 2:
         st.markdown('<div class="section-header"><h3>Step 2: Data Analysis</h3></div>', unsafe_allow_html=True)
+        
+        # Clean data for display (fix Arrow serialization issues)
+        df_display = df.copy()
+        for col in df_display.columns:
+            if df_display[col].dtype == 'object':
+                # Convert mixed type columns to string to avoid Arrow issues
+                df_display[col] = df_display[col].astype(str)
+            elif df_display[col].dtype in ['Int64', 'Float64']:
+                # Convert nullable integers to regular int/float
+                df_display[col] = pd.to_numeric(df_display[col], errors='coerce')
         
         # Dataset overview
         col1, col2, col3, col4 = st.columns(4)
@@ -1005,7 +1154,7 @@ def app():
         tab1, tab2, tab3 = st.tabs(["Data Sample", "Data Info", "Data Quality"])
         
         with tab1:
-            st.dataframe(df.head(10), use_container_width=True)
+            st.dataframe(df_display.head(10), use_container_width=True)
         
         with tab2:
             col1, col2 = st.columns(2)
@@ -1013,7 +1162,7 @@ def app():
                 st.write("**Data Types:**")
                 dtype_df = pd.DataFrame({
                     'Column': df.dtypes.index,
-                    'Type': df.dtypes.values,
+                    'Type': df.dtypes.values.astype(str),
                     'Non-Null Count': df.count().values,
                     'Null Count': df.isnull().sum().values
                 })
@@ -1021,7 +1170,12 @@ def app():
             
             with col2:
                 st.write("**Statistical Summary:**")
-                st.dataframe(df.describe(), use_container_width=True)
+                # Only show numeric columns for describe
+                numeric_df = df.select_dtypes(include=[np.number])
+                if not numeric_df.empty:
+                    st.dataframe(numeric_df.describe(), use_container_width=True)
+                else:
+                    st.info("No numeric columns to summarize")
         
         with tab3:
             if df.isnull().sum().sum() > 0:
@@ -1053,12 +1207,14 @@ def app():
         st.markdown('<div class="section-header"><h3>Step 3: Model Selection</h3></div>', unsafe_allow_html=True)
         
         # Target selection
+        default_target = st.session_state.get("selected_target_column", df.columns[0])
+
         target_column = st.selectbox(
             "Select Target Column (What do you want to predict?)", 
             df.columns.tolist(),
+            index=df.columns.get_loc(default_target) if default_target in df.columns else 0,
             help="Choose the column you want your model to predict"
         )
-        
         if target_column:
             # Enhanced problem type detection
             unique_values = df[target_column].nunique()
@@ -1265,11 +1421,40 @@ def app():
             st.info("Setting up unified preprocessing pipeline...")
             preprocessor = DataPreprocessor()
             
-            # Fit and transform data
+            # Debug info before preprocessing
+            st.info(f"Input data: X shape {X.shape}, y shape {y.shape}, y dtype: {y.dtype}")
+            
+            # Fit and transform data with error handling
             target_scaling = config.get('target_scaling', 'auto')
-            X_processed, y_processed = preprocessor.fit_transform_features(
-                X, y if config['problem_type'] == "Regression" else None, target_scaling
-            )
+            try:
+                X_processed, y_processed = preprocessor.fit_transform_features(
+                    X, y, target_scaling  # Always pass y for both cases
+                )
+            except Exception as e:
+                st.error(f"Preprocessing failed: {str(e)}")
+                st.error("Attempting fallback preprocessing...")
+                # Fallback - basic preprocessing
+                X_processed = X.copy()
+                y_processed = y.copy()
+                
+                # Basic categorical encoding
+                for col in X_processed.columns:
+                    if X_processed[col].dtype == 'object':
+                        le = LabelEncoder()
+                        X_processed[col] = le.fit_transform(X_processed[col].astype(str))
+                
+                # Basic scaling
+                scaler = StandardScaler()
+                X_processed = pd.DataFrame(
+                    scaler.fit_transform(X_processed), 
+                    columns=X_processed.columns, 
+                    index=X_processed.index
+                )
+                st.warning("Using fallback preprocessing")
+            
+            # Debug info after preprocessing
+            st.info(f"After preprocessing: X_processed shape {X_processed.shape if X_processed is not None else 'None'}")
+            st.info(f"After preprocessing: y_processed type {type(y_processed)}, shape {y_processed.shape if hasattr(y_processed, 'shape') else 'No shape'}")
             
             # Store preprocessor for consistent predictions
             st.session_state.preprocessor = preprocessor
@@ -1279,6 +1464,21 @@ def app():
             if config['problem_type'] == "Regression" and preprocessor.target_transform_config['type'] != 'none':
                 st.info(f"Target scaling applied: {preprocessor.target_transform_config['type']}")
             
+            # CRITICAL: Ensure y_processed is ALWAYS properly initialized
+            if y_processed is None:
+                st.error("CRITICAL: y_processed is None after preprocessing!")
+                y_processed = y.copy()
+                st.warning("Using original y as fallback")
+            
+            # Validate y_processed has proper attributes
+            if not hasattr(y_processed, 'shape'):
+                st.warning("y_processed missing shape attribute, converting to pandas Series")
+                y_processed = pd.Series(y_processed, index=y.index if hasattr(y, 'index') else range(len(y_processed)))
+            
+            # Additional debug info
+            st.info(f"Final y_processed validation: type={type(y_processed)}, shape={getattr(y_processed, 'shape', 'No shape')}")
+            st.info(f"Sample y_processed values: {y_processed.head().tolist() if hasattr(y_processed, 'head') else 'Cannot show'}")
+            
             # Handle target encoding for classification
             if config['problem_type'] == "Classification" and y.dtype == 'object':
                 st.info("Encoding target...")
@@ -1286,13 +1486,40 @@ def app():
                 y_processed = pd.Series(le_target.fit_transform(y.astype(str)), index=y.index)
                 st.session_state.target_encoder = le_target
                 st.success(f"Target encoded: {len(le_target.classes_)} classes")
+            elif config['problem_type'] == "Classification":
+                # Target is already numeric for classification
+                if y_processed is None or not hasattr(y_processed, 'copy'):
+                    y_processed = y.copy()
+                st.session_state.target_encoder = None
+                st.info("Target is already numeric")
             else:
+                # For regression, ensure y_processed is valid
+                if y_processed is None:
+                    y_processed = y.copy()
                 st.session_state.target_encoder = None
             
             # Data splitting
             st.info("Splitting data...")
             try:
-                stratify = y_processed if config['problem_type'] == "Classification" and len(np.unique(y_processed)) > 1 else None
+                # Ensure y_processed is properly defined
+                if y_processed is None:
+                    st.warning("y_processed is None, using original y")
+                    y_processed = y.copy()
+                
+                # Additional validation
+                if not hasattr(y_processed, 'shape'):
+                    st.warning("y_processed doesn't have shape attribute, converting to Series")
+                    y_processed = pd.Series(y_processed, index=y.index if hasattr(y, 'index') else None)
+                
+                # For classification, ensure proper stratification
+                if config['problem_type'] == "Classification":
+                    unique_vals = len(np.unique(y_processed.dropna())) if hasattr(y_processed, 'dropna') else len(np.unique(y_processed))
+                    st.info(f"Classification target has {unique_vals} unique values")
+                    stratify = y_processed if unique_vals > 1 and unique_vals < len(y_processed) * 0.5 else None
+                else:
+                    stratify = None
+                
+                # Perform the split
                 X_train, X_test, y_train, y_test = train_test_split(
                     X_processed, y_processed, 
                     test_size=config['test_size'], 
@@ -1300,9 +1527,30 @@ def app():
                     stratify=stratify
                 )
                 st.success(f"Data split: {X_train.shape[0]} train, {X_test.shape[0]} test")
+                
             except Exception as e:
                 st.error(f"Error splitting data: {str(e)}")
-                return
+                st.error(f"Debug info:")
+                st.error(f"  - X_processed: {type(X_processed)}, shape: {X_processed.shape if hasattr(X_processed, 'shape') else 'No shape'}")
+                st.error(f"  - y_processed: {type(y_processed)}, shape: {y_processed.shape if hasattr(y_processed, 'shape') else 'No shape'}")
+                st.error(f"  - Original y: {type(y)}, shape: {y.shape if hasattr(y, 'shape') else 'No shape'}")
+                
+                # Try a fallback approach
+                st.warning("Attempting fallback data splitting...")
+                try:
+                    # Use original y if y_processed fails
+                    y_for_split = y_processed if y_processed is not None else y
+                    
+                    X_train, X_test, y_train, y_test = train_test_split(
+                        X_processed, y_for_split, 
+                        test_size=config['test_size'], 
+                        random_state=42, 
+                        stratify=None  # No stratification in fallback
+                    )
+                    st.success(f"Fallback split successful: {X_train.shape[0]} train, {X_test.shape[0]} test")
+                except Exception as e2:
+                    st.error(f"Fallback also failed: {str(e2)}")
+                    return
             
             # REAL TRAINING PHASE - ONLY RUNS ONCE
             st.markdown('<div class="training-container">', unsafe_allow_html=True)
@@ -1490,115 +1738,271 @@ def app():
         # Show required features
         with st.expander("Required Features", expanded=False):
             preprocessor = st.session_state.get('preprocessor')
+            target_column = st.session_state.training_config.get('target_column')
+            
             if preprocessor:
-                feature_names = preprocessor.feature_names
-                target_column = st.session_state.training_config.get('target_column')
+                # Get ORIGINAL features (TRULY RAW from the uploaded dataset)
+                selected_features = st.session_state.training_config.get('selected_features', [])
                 
-                st.write(f"**Required Features ({len(feature_names)}):**")
-                for i, feature in enumerate(feature_names, 1):
+                # Filter out engineered features - show only truly original ones
+                engineered_patterns = ['_encoded', '_A (agr)', '_C (all)', '_FV', '_I (all)', '_RH', '_RL', '_RM', 
+                                     '_Grvl', '_Pave', '_IR1', '_IR2', '_IR3', '_Reg', '_Bnk', '_HLS', '_Low', '_Lvl',
+                                     '_AllPub', '_NoSeWa', '_NoSewr', '_Corner', '_CulDSac', '_FR2', '_FR3', '_Inside',
+                                     '_Gtl', '_Mod', '_Sev', '_Artery', '_Feedr', '_Norm', '_PosA', '_PosN', '_RRAe',
+                                     '_RRAn', '_RRNe', '_RRNn', '_1Fam', '_2fmCon', '_Duplex', '_Twnhs', '_TwnhsE',
+                                     '_1.5Fin', '_1.5Unf', '_1Story', '_2.5Fin', '_2.5Unf', '_2Story', '_SFoyer', '_SLvl',
+                                     '_Flat', '_Gable', '_Gambrel', '_Hip', '_Mansard', '_Shed', '_ClyTile', '_CompShg',
+                                     '_Membran', '_Metal', '_Roll', '_Tar&Grv', '_WdShake', '_WdShngl', '_BrkCmn',
+                                     '_BrkFace', '_CBlock', '_Stone', '_Ex', '_Fa', '_Gd', '_TA', '_Po', '_BrkTil',
+                                     '_PConc', '_Slab', '_Wood', '_Av', '_Mn', '_No', '_ALQ', '_BLQ', '_GLQ', '_LwQ',
+                                     '_Rec', '_Unf', '_Floor', '_GasA', '_GasW', '_Grav', '_OthW', '_Wall', '_N', '_Y',
+                                     '_FuseA', '_FuseF', '_FuseP', '_Mix', '_SBrkr', '_Maj1', '_Maj2', '_Min1', '_Min2',
+                                     '_Sal', '_Sev', '_Typ', '_2Types', '_Attchd', '_Basment', '_BuiltIn', '_CarPort',
+                                     '_Detchd', '_Fin', '_RFn', '_P', '_GdPrv', '_GdWo', '_MnPrv', '_MnWw', '_Elev',
+                                     '_Gar2', '_Othr', '_Shed', '_TenC', '_Abnorml', '_AdjLand', '_Alloca', '_Family',
+                                     '_Normal', '_Partial']
+                
+                # Filter to get only truly original features
+                original_features = []
+                for feature in selected_features:
+                    is_engineered = any(pattern in feature for pattern in engineered_patterns)
+                    if not is_engineered and feature in df.columns:
+                        original_features.append(feature)
+                
+                st.markdown("**🎯 Input these ORIGINAL features only:**")
+                st.info(f"Provide raw values for {len(original_features)} original features. The system will automatically handle feature engineering.")
+                
+                if len(original_features) == 0:
+                    st.error("⚠️ No truly original features found. This dataset may have been fully processed during feature engineering.")
+                    st.info("💡 Try using the original dataset (before feature engineering) for better predictions.")
+                    return
+                
+                for i, feature in enumerate(original_features, 1):
                     if feature in df.columns:
                         if df[feature].dtype == 'object':
-                            unique_vals = df[feature].unique()[:3]
-                            st.write(f"{i:2d}. `{feature}` (categories: {list(unique_vals)}{'...' if len(df[feature].unique()) > 3 else ''})")
+                            unique_vals = df[feature].unique()[:5]
+                            st.write(f"{i:2d}. `{feature}` (categories: {list(unique_vals)}{'...' if len(df[feature].unique()) > 5 else ''})")
                         else:
-                            st.write(f"{i:2d}. `{feature}` (numeric: {df[feature].min():.2f} to {df[feature].max():.2f})")
+                            st.write(f"{i:2d}. `{feature}` (range: {df[feature].min():.2f} to {df[feature].max():.2f})")
                 
-                # Template
+                # Template with ORIGINAL raw values ONLY
                 template = {}
-                for feature in feature_names:
+                for feature in original_features:
                     if feature in df.columns:
-                        sample_val = df[feature].iloc[0]
-                        if pd.isna(sample_val):
-                            template[feature] = "value_here"
-                        elif df[feature].dtype in ['int64', 'float64']:
-                            template[feature] = float(sample_val) if df[feature].dtype == 'float64' else int(sample_val)
+                        # Get a reasonable sample value (not scaled)
+                        non_null_vals = df[feature].dropna()
+                        if len(non_null_vals) > 0:
+                            if df[feature].dtype == 'object':
+                                # For categorical, use most common value
+                                template[feature] = non_null_vals.mode().iloc[0] if not non_null_vals.mode().empty else str(non_null_vals.iloc[0])
+                            else:
+                                # For numeric, use median to avoid outliers
+                                template[feature] = float(non_null_vals.median()) if df[feature].dtype == 'float64' else int(non_null_vals.median())
                         else:
-                            template[feature] = str(sample_val)
+                            template[feature] = "value_here"
                 
+                st.markdown("**📋 Template (copy and modify):**")
                 st.code(json.dumps(template, indent=2), language="json")
+                
+                # Show what NOT to include
+                engineered_features = [f for f in preprocessor.feature_names if f not in original_features]
+                if engineered_features:
+                    with st.expander("ℹ️ Auto-generated features (don't include)", expanded=False):
+                        st.markdown("**These are automatically created - don't include in your input:**")
+                        for feature in engineered_features[:10]:  # Show only first 10 to avoid clutter
+                            st.write(f"• `{feature}` (auto-generated)")
+                        if len(engineered_features) > 10:
+                            st.write(f"• ... and {len(engineered_features) - 10} more engineered features")
+                        st.info("The system will create these features automatically from your input.")
         
         # Interactive input
         if input_method == "Interactive":
             st.markdown("#### Enter Feature Values")
+            st.info("🎯 Enter raw values only - the system will handle preprocessing automatically")
             
-            preprocessor = st.session_state.get('preprocessor')
-            if preprocessor:
-                feature_names = preprocessor.feature_names
-                input_values = {}
-                cols = st.columns(min(3, len(feature_names)))
-                
-                for i, feature in enumerate(feature_names):
-                    with cols[i % len(cols)]:
-                        if feature in df.columns:
-                            if df[feature].dtype in ['int64', 'float64']:
-                                sample_val = float(df[feature].iloc[0]) if not pd.isna(df[feature].iloc[0]) else 0.0
-                                input_values[feature] = st.number_input(
+            # Use TRULY ORIGINAL features only for user input
+            selected_features = st.session_state.training_config.get('selected_features', [])
+            
+            # Filter out engineered features - same logic as template
+            engineered_patterns = ['_encoded', '_A (agr)', '_C (all)', '_FV', '_I (all)', '_RH', '_RL', '_RM', 
+                                 '_Grvl', '_Pave', '_IR1', '_IR2', '_IR3', '_Reg', '_Bnk', '_HLS', '_Low', '_Lvl',
+                                 '_AllPub', '_NoSeWa', '_NoSewr', '_Corner', '_CulDSac', '_FR2', '_FR3', '_Inside',
+                                 '_Gtl', '_Mod', '_Sev', '_Artery', '_Feedr', '_Norm', '_PosA', '_PosN', '_RRAe',
+                                 '_RRAn', '_RRNe', '_RRNn', '_1Fam', '_2fmCon', '_Duplex', '_Twnhs', '_TwnhsE',
+                                 '_1.5Fin', '_1.5Unf', '_1Story', '_2.5Fin', '_2.5Unf', '_2Story', '_SFoyer', '_SLvl',
+                                 '_Flat', '_Gable', '_Gambrel', '_Hip', '_Mansard', '_Shed', '_ClyTile', '_CompShg',
+                                 '_Membran', '_Metal', '_Roll', '_Tar&Grv', '_WdShake', '_WdShngl', '_BrkCmn',
+                                 '_BrkFace', '_CBlock', '_Stone', '_Ex', '_Fa', '_Gd', '_TA', '_Po', '_BrkTil',
+                                 '_PConc', '_Slab', '_Wood', '_Av', '_Mn', '_No', '_ALQ', '_BLQ', '_GLQ', '_LwQ',
+                                 '_Rec', '_Unf', '_Floor', '_GasA', '_GasW', '_Grav', '_OthW', '_Wall', '_N', '_Y',
+                                 '_FuseA', '_FuseF', '_FuseP', '_Mix', '_SBrkr', '_Maj1', '_Maj2', '_Min1', '_Min2',
+                                 '_Sal', '_Sev', '_Typ', '_2Types', '_Attchd', '_Basment', '_BuiltIn', '_CarPort',
+                                 '_Detchd', '_Fin', '_RFn', '_P', '_GdPrv', '_GdWo', '_MnPrv', '_MnWw', '_Elev',
+                                 '_Gar2', '_Othr', '_Shed', '_TenC', '_Abnorml', '_AdjLand', '_Alloca', '_Family',
+                                 '_Normal', '_Partial']
+            
+            # Get only truly original features
+            original_features = []
+            for feature in selected_features:
+                is_engineered = any(pattern in feature for pattern in engineered_patterns)
+                if not is_engineered and feature in df.columns:
+                    original_features.append(feature)
+            
+            if len(original_features) == 0:
+                st.error("⚠️ No original features available for interactive input.")
+                st.info("💡 This dataset may have been fully processed during feature engineering.")
+                return
+            
+            input_values = {}
+            cols = st.columns(min(3, len(original_features)))
+            
+            for i, feature in enumerate(original_features):
+                with cols[i % len(cols)]:
+                    if feature in df.columns:
+                        if df[feature].dtype in ['int64', 'float64']:
+                            # Use median as default for numeric
+                            median_val = df[feature].median()
+                            sample_val = float(median_val) if not pd.isna(median_val) else 0.0
+                            input_values[feature] = st.number_input(
+                                f"{feature}",
+                                value=sample_val,
+                                key=f"input_{feature}",
+                                help=f"Range: {df[feature].min():.2f} to {df[feature].max():.2f}"
+                            )
+                        else:
+                            unique_vals = sorted(df[feature].dropna().unique())
+                            if len(unique_vals) <= 20:
+                                input_values[feature] = st.selectbox(
                                     f"{feature}",
-                                    value=sample_val,
-                                    key=f"input_{feature}",
-                                    help=f"Range: {df[feature].min():.2f} to {df[feature].max():.2f}"
+                                    unique_vals,
+                                    key=f"input_{feature}"
                                 )
                             else:
-                                unique_vals = sorted(df[feature].dropna().unique())
-                                if len(unique_vals) <= 20:
-                                    input_values[feature] = st.selectbox(
-                                        f"{feature}",
-                                        unique_vals,
-                                        key=f"input_{feature}"
-                                    )
-                                else:
-                                    input_values[feature] = st.text_input(
-                                        f"{feature}",
-                                        value=str(df[feature].iloc[0]),
-                                        key=f"input_{feature}"
-                                    )
-                
-                if st.button("Make Prediction", type="primary"):
-                    with st.spinner("Generating prediction..."):
-                        prediction_result = make_prediction_consistent(
-                            prediction_model, 
-                            input_values, 
-                            st.session_state.training_config
-                        )
-                        if prediction_result:
-                            st.success(f"**{prediction_result}**")
-                            st.info("Prediction generated using unified preprocessing pipeline")
+                                # Use most common value as default
+                                mode_val = df[feature].mode().iloc[0] if not df[feature].mode().empty else str(df[feature].iloc[0])
+                                input_values[feature] = st.text_input(
+                                    f"{feature}",
+                                    value=str(mode_val),
+                                    key=f"input_{feature}"
+                                )
+            
+            # FIXED: Move button outside the loop to avoid duplicate IDs
+            if st.button("Make Prediction", type="primary", key="interactive_predict"):
+                with st.spinner("Generating prediction..."):
+                    st.info(f"🔍 DEBUG: Input values = {input_values}")
+                    prediction_result = make_prediction_consistent(
+                        prediction_model, 
+                        input_values, 
+                        st.session_state.training_config
+                    )
+                    if prediction_result:
+                        st.success(f"**{prediction_result}**")
+                        st.info("Prediction generated using unified preprocessing pipeline")
         
+        # JSON input
         # JSON input
         else:
             st.markdown("#### JSON Input")
+            st.info("🎯 Use the template above with RAW values (not scaled). The system will automatically preprocess them.")
+            
+            # FIXED: Dynamic example generation for ANY dataset
+            original_features = st.session_state.training_config.get('selected_features', [])
+            
+            if original_features:
+                st.markdown("**📋 Example JSON for your dataset:**")
+                
+                # Generate dynamic example based on actual dataset features
+                example_data = {}
+                for feature in original_features:
+                    if feature in df.columns:
+                        if df[feature].dtype == 'object' or df[feature].dtype.name == 'category':
+                            # For categorical features, use the most common value
+                            mode_val = df[feature].mode()
+                            example_data[feature] = mode_val.iloc[0] if not mode_val.empty else "unknown"
+                        else:
+                            # For numeric features, use median or a reasonable sample
+                            median_val = df[feature].median()
+                            if pd.isna(median_val):
+                                example_data[feature] = 0
+                            elif df[feature].dtype in ['int64', 'int32']:
+                                example_data[feature] = int(median_val)
+                            else:
+                                example_data[feature] = round(float(median_val), 2)
+                
+                # Display the dynamic example
+                example_json = json.dumps(example_data, indent=2)
+                st.code(example_json, language="json")
+                
+                # Show feature details for user reference
+                with st.expander("📊 Feature Details", expanded=False):
+                    for feature in original_features:
+                        if feature in df.columns:
+                            if df[feature].dtype == 'object':
+                                unique_vals = df[feature].unique()
+                                sample_vals = list(unique_vals[:5])
+                                st.write(f"**{feature}** (categorical): {sample_vals}{'...' if len(unique_vals) > 5 else ''}")
+                            else:
+                                min_val, max_val = df[feature].min(), df[feature].max()
+                                st.write(f"**{feature}** (numeric): {min_val:.2f} to {max_val:.2f}")
             
             json_input = st.text_area(
                 "Enter JSON data:",
-                height=200,
-                placeholder='{"feature1": value1, "feature2": value2, ...}'
+                height=150,
+                placeholder=f'Modify the example above with your values for {len(original_features)} features...'
             )
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("Validate JSON"):
+                if st.button("Validate JSON", key="validate_json"):
                     try:
-                        json.loads(json_input.strip())
-                        st.success("Valid JSON!")
+                        parsed_json = json.loads(json_input.strip())
+                        
+                        # Enhanced validation
+                        missing_features = set(original_features) - set(parsed_json.keys())
+                        extra_features = set(parsed_json.keys()) - set(original_features)
+                        
+                        if missing_features:
+                            st.warning(f"Missing features: {list(missing_features)}")
+                        if extra_features:
+                            st.info(f"Extra features (will be ignored): {list(extra_features)}")
+                        
+                        if not missing_features:
+                            st.success("✅ Valid JSON with all required features!")
+                        else:
+                            st.warning("⚠️ JSON is valid but missing some features")
+                            
                     except json.JSONDecodeError as e:
-                        st.error(f"Invalid JSON: {str(e)}")
+                        st.error(f"❌ Invalid JSON: {str(e)}")
             
             with col2:
-                if st.button("Predict", type="primary"):
+                if st.button("Predict", type="primary", key="json_predict"):
                     try:
                         json_data = json.loads(json_input.strip())
+                        st.info(f"🔍 DEBUG: JSON input = {json_data}")
+                        
+                        # Filter to only include expected features
+                        filtered_data = {k: v for k, v in json_data.items() if k in original_features}
+                        
+                        if len(filtered_data) != len(original_features):
+                            missing = set(original_features) - set(filtered_data.keys())
+                            st.warning(f"Using available features. Missing: {list(missing)}")
+                        
                         with st.spinner("Processing..."):
                             prediction_result = make_prediction_consistent(
                                 prediction_model, 
-                                json_data, 
+                                filtered_data,  # Use filtered data
                                 st.session_state.training_config
                             )
                             if prediction_result:
                                 st.success(f"**{prediction_result}**")
+                                st.info("✅ Prediction generated using unified preprocessing pipeline")
                     except json.JSONDecodeError:
-                        st.error("Fix JSON format first")
+                        st.error("❌ Fix JSON format first")
                     except Exception as e:
-                        st.error(f"Prediction error: {str(e)}")
+                        st.error(f"❌ Prediction error: {str(e)}")
+                        import traceback
+                        st.error(f"Debug traceback: {traceback.format_exc()}")
+
 
 if __name__ == "__main__":
     app()

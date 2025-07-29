@@ -9,7 +9,7 @@ st.set_page_config(
 # Import modules correctly
 from modules import visualize
 from modules import ML_training
-from modules import DL_training  
+import modules.DL_training as DL_training
 from modules import Feature_eng
 from utils.shared import apply_common_settings
 from utils.sidebar import custom_sidebar
