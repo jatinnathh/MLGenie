@@ -876,12 +876,28 @@ def app():
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+                
+                # Model action buttons
+                model_actions = [
+                    {"text": "View Details", "type": "primary", "size": "small"},
+                    {"text": "Download", "type": "secondary", "size": "small"},
+                    {"text": "Compare", "type": "secondary", "size": "small"}
+                ]
+                st.markdown(create_flourish_button_group(model_actions, "center"), unsafe_allow_html=True)
             else:
                 st.info("Train models to see your best performer!")
             st.markdown('</div>', unsafe_allow_html=True)
     
     # Charts Section
     st.markdown('<div class="section-header">Analytics</div>', unsafe_allow_html=True)
+    
+    # Chart control buttons
+    chart_controls = [
+        {"text": "Refresh Charts", "type": "secondary", "size": "small"},
+        {"text": "Export Charts", "type": "secondary", "size": "small"},
+        {"text": "Customize View", "type": "primary", "size": "small"}
+    ]
+    st.markdown(create_flourish_button_group(chart_controls, "center"), unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     
