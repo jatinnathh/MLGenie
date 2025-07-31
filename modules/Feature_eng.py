@@ -519,7 +519,7 @@ def app():
                     st.session_state.df_feature_eng = df.copy()
                     st.session_state.auto_eng_completed = True
                     status_text.text("Auto-engineering completed!")
-                    st.success(f"✅ Auto-engineering completed! Applied {len(pipeline.transformations)} transformations.")
+                    st.success(f"Auto-engineering completed! Applied {len(pipeline.transformations)} transformations.")
                     st.info("All transformations have been saved to the pipeline for consistent prediction preprocessing.")
                     
                 except Exception as e:
@@ -632,7 +632,7 @@ def app():
                             
                             st.session_state.df_feature_eng = df.copy()
                             st.success(f"Scaling completed successfully for {len(cols_to_scale)} features")
-                            st.info("✅ Scaling transformation saved to pipeline")
+                            st.info("Scaling transformation saved to pipeline")
                         except Exception as e:
                             st.error(f"Error: {str(e)}")
         elif basic_operation == "One-Hot Encoding":
@@ -666,7 +666,7 @@ def app():
                         st.success(f"One-hot encoding applied successfully for {len(selected_cols)} columns")
                         new_cols = [col for col in df.columns if any(sc in col for sc in selected_cols)]
                         st.info(f"Added {len(new_cols)} new columns")
-                        st.info("✅ One-hot encoding transformation saved to pipeline")
+                        st.info("One-hot encoding transformation saved to pipeline")
                     except Exception as e:
                         st.error(f"Error: {str(e)}")
     
@@ -1053,10 +1053,10 @@ def app():
         # Save pipeline button
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("💾 Save Pipeline for Later Use", use_container_width=True):
+            if st.button("Save Pipeline for Later Use", use_container_width=True):
                 try:
                     pipeline.save_pipeline("feature_engineering_pipeline.pkl")
-                    st.success("✅ Pipeline saved successfully!")
+                    st.success("Pipeline saved successfully!")
                     st.info("You can use this pipeline to transform new data consistently")
                 except Exception as e:
                     st.error(f"Error saving pipeline: {str(e)}")
@@ -1078,7 +1078,7 @@ def app():
             
             pipeline_json = json.dumps(pipeline_summary, indent=2)
             st.download_button(
-                "📋 Download Pipeline Summary",
+                "Download Pipeline Summary",
                 pipeline_json,
                 file_name="feature_engineering_summary.json",
                 mime="application/json",

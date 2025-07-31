@@ -443,9 +443,6 @@ class DataPreprocessor:
     
     def transform_features(self, X):
         """Transform new data using fitted preprocessors - ENHANCED for raw input"""
-        st.info(f"🔍 INPUT DEBUG: Received {X.shape[0]} rows, {X.shape[1]} columns")
-        st.info(f"🔍 INPUT COLUMNS: {list(X.columns)}")
-        st.info(f"🔍 INPUT VALUES: {X.iloc[0].to_dict()}")
         
         X_processed = X.copy()
         
@@ -478,12 +475,6 @@ class DataPreprocessor:
         has_only_original = len(truly_original_features) == len(X_processed.columns)
         has_engineered = any(pattern in col for col in X_processed.columns for pattern in engineered_feature_patterns)
         
-        st.info(f"🔍 FEATURE ANALYSIS:")
-        st.info(f"  - Truly original features: {len(truly_original_features)}")
-        st.info(f"  - Total input features: {len(X_processed.columns)}")
-        st.info(f"  - Has engineered features: {has_engineered}")
-        st.info(f"  - Is pure raw input: {has_only_original}")
-        
         # Get original feature list to detect if user provided raw features only
         stored_categorical = self.categorical_features if hasattr(self, 'categorical_features') else []
         stored_numerical = self.numerical_features if hasattr(self, 'numerical_features') else []
@@ -492,22 +483,14 @@ class DataPreprocessor:
         
         is_raw_input = has_only_original and not has_engineered
         
-        st.info(f"🔍 PROCESSING TYPE: {'Pure raw input' if is_raw_input else 'Feature-engineered input'}")
-        st.info(f"🔍 ORIGINAL FEATURES FROM TRAINING: {original_from_training}")
-        st.info(f"🔍 EXPECTED FEATURES: {self.feature_names}")
-        
         if is_raw_input:
-            st.info("🔄 Processing pure raw input - recreating ALL engineered features...")
-            
             # Step 1: Handle missing values in original features
             for col in X_processed.columns:
                 if X_processed[col].isnull().sum() > 0:
                     if col in stored_numerical:
                         X_processed[col] = X_processed[col].fillna(0)
-                        st.info(f"🔍 Filled missing numeric values in {col}")
                     else:
                         X_processed[col] = X_processed[col].fillna('Unknown')
-                        st.info(f"🔍 Filled missing categorical values in {col}")
             
             # Step 2: Apply label encoding to categorical features that need it
             for col in stored_categorical:
@@ -517,7 +500,6 @@ class DataPreprocessor:
                         # Apply the fitted label encoder
                         encoded_values = self.label_encoders[col].transform(X_processed[col].astype(str))
                         X_processed[col] = encoded_values
-                        st.info(f"🔍 ENCODED {col}: '{original_val}' → {encoded_values[0]}")
                     except ValueError as e:
                         # Handle unseen categories - assign a default value
                         st.warning(f"Unseen category in {col}: '{original_val}', using default encoding 0")
@@ -527,12 +509,9 @@ class DataPreprocessor:
             for col in self.feature_names:
                 if col not in X_processed.columns:
                     X_processed[col] = 0
-                    st.info(f"🔍 Added missing engineered feature '{col}' = 0")
         
         else:
             # Feature-engineered input - minimal processing
-            st.info("🔄 Processing feature-engineered input...")
-            
             # Handle missing values
             for col in X_processed.columns:
                 if X_processed[col].isnull().sum() > 0:
@@ -558,8 +537,6 @@ class DataPreprocessor:
         # Ensure correct column order
         X_processed = X_processed[self.feature_names]
         
-        st.info(f"🔍 BEFORE SCALING: First few features = {dict(list(X_processed.iloc[0].items())[:5])}")
-        
         # Convert to numeric (safety check)
         for col in X_processed.columns:
             if X_processed[col].dtype == 'object':
@@ -569,7 +546,6 @@ class DataPreprocessor:
         if self.feature_scaler:
             X_scaled = self.feature_scaler.transform(X_processed)
             X_scaled = pd.DataFrame(X_scaled, columns=X_processed.columns, index=X_processed.index)
-            st.info(f"🔍 AFTER SCALING: First few features = {dict(list(X_scaled.iloc[0].items())[:5])}")
             return X_scaled
         
         return X_processed
@@ -694,7 +670,7 @@ def train_model_real(model_name, X_train, y_train, X_test, y_test, problem_type,
                 
                 # Early stopping
                 if patience_counter >= patience and iteration > 20:
-                    st.info(f"⏹️ Early stopping at iteration {iteration}")
+                    st.info(f"Early stopping at iteration {iteration}")
                     break
                 
                 time.sleep(0.01)  # Small delay for visual effect
@@ -895,16 +871,11 @@ def make_prediction_consistent(model_name, input_data, training_config):
             st.error("Input data must be a dictionary")
             return None
         
-        st.info(f"📥 Raw input received: {len(input_df.columns)} features")
-        st.write("Raw input data:", input_df.iloc[0].to_dict())
-        
         # Get feature engineering pipeline
         feature_pipeline = st.session_state.get('feature_pipeline')
         
         # Check if feature engineering was actually applied during training
         if feature_pipeline and len(feature_pipeline.transformations) > 0:
-            st.info("🔄 Applying feature engineering transformations...")
-            
             # Validate input has original features
             original_cols = feature_pipeline.original_columns
             if feature_pipeline.target_column and feature_pipeline.target_column in original_cols:
@@ -921,12 +892,9 @@ def make_prediction_consistent(model_name, input_data, training_config):
             
             # Apply feature engineering pipeline to transform raw input
             X_processed = feature_pipeline.transform(input_df)
-            st.success(f"✅ Features processed: {X_processed.shape[0]} rows × {X_processed.shape[1]} columns")
             
         else:
             # No feature engineering was applied - use DataPreprocessor for direct prediction
-            st.info("🔄 No feature engineering pipeline found - using direct preprocessing...")
-            
             # Get the preprocessor used during training
             preprocessor = st.session_state.get('preprocessor')
             if not preprocessor:
@@ -935,7 +903,6 @@ def make_prediction_consistent(model_name, input_data, training_config):
             
             # Apply the same preprocessing used during training
             X_processed = preprocessor.transform_features(input_df)
-            st.success(f"✅ Features processed directly: {X_processed.shape[0]} rows × {X_processed.shape[1]} columns")
         
         # Make prediction
         prediction = model.predict(X_processed.values)
@@ -1038,38 +1005,25 @@ def make_prediction_consistent(model_name, input_data, training_config):
                     # Apply inverse scaling to prediction
                     predicted_value = target_scaler.inverse_transform([[predicted_value]])[0][0]
                     scaling_applied = True
-                    st.success(f"✅ Applied inverse scaling using {target_scaler_info}")
                 except Exception as e:
-                    st.warning(f"Could not apply direct inverse scaling: {e}")
+                    pass
             
             # If prediction still seems scaled (and we didn't successfully apply inverse scaling)
             prediction_seems_scaled = predicted_value < 1000  # House prices are typically much higher
             
             if not scaling_applied and prediction_seems_scaled:
-                st.info(f"🔍 Detected scaled prediction value: {predicted_value:.2f}")
-                
                 # Try to find a reasonable scaling factor
                 if 10 <= predicted_value <= 15:
                     # This range suggests log scaling was applied
                     scaling_factor = 208500 / 12.22  # Use ratio from known example
                     predicted_value = predicted_value * scaling_factor
-                    st.info(f"🔧 Applied estimated log-scale inverse factor: {scaling_factor:.0f}x")
                 elif predicted_value < 1:
                     # Very small values might need different scaling
                     scaling_factor = 200000  # Typical scaling for normalized values
                     predicted_value = predicted_value * scaling_factor
-                    st.info(f"🔧 Applied normalization inverse factor: {scaling_factor}x")
-                else:
-                    st.warning("⚠️ Prediction pattern not recognized - using raw value")
                     
                 if predicted_value > 1000:  # Now seems reasonable
                     scaling_applied = True
-            
-            # Final validation
-            if not scaling_applied and prediction_seems_scaled:
-                st.warning("⚠️ Prediction may still be on scaled values. Consider checking your target scaling during training.")
-            elif scaling_applied:
-                st.success(f"✅ Final prediction: {original_value:.4f} → ${predicted_value:,.2f}")
             
             # Create meaningful output key based on target column name
             if target_column:
@@ -1260,7 +1214,7 @@ def app():
             
             st.dataframe(df.head(), use_container_width=True)
             
-            if st.button("Continue to Data Analysis →", type="primary", use_container_width=True):
+            if st.button("Continue to Data Analysis", type="primary", use_container_width=True):
                 st.session_state.training_step = 2
                 st.rerun()
         else:
@@ -1319,7 +1273,7 @@ def app():
                     
                     st.dataframe(df_clean.head(), use_container_width=True)
                     
-                    if st.button("Continue to Data Analysis →", type="primary", use_container_width=True):
+                    if st.button("Continue to Data Analysis", type="primary", use_container_width=True):
                         st.session_state.training_step = 2
                         st.rerun()
                         
@@ -1330,9 +1284,11 @@ def app():
         return
     
     # Get dataset for subsequent steps
-    df = st.session_state.get('df_feature_eng')
-    if df is None:
-        df = st.session_state.get('feature_eng_data')
+    df = None
+    if 'df_feature_eng' in st.session_state and st.session_state['df_feature_eng'] is not None:
+        df = st.session_state['df_feature_eng']
+    elif 'feature_eng_data' in st.session_state and st.session_state['feature_eng_data'] is not None:
+        df = st.session_state['feature_eng_data']
 
     
     if df is None and st.session_state.training_step > 1:
@@ -1433,11 +1389,11 @@ def app():
         # Navigation
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("← Back to Data Upload"):
+            if st.button("Back to Data Upload"):
                 st.session_state.training_step = 1
                 st.rerun()
         with col2:
-            if st.button("Continue to Model Selection →", type="primary", use_container_width=True):
+            if st.button("Continue to Model Selection", type="primary", use_container_width=True):
                 st.session_state.training_step = 3
                 st.rerun()
     
@@ -1538,12 +1494,12 @@ def app():
                 # Navigation
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("← Back to Data Analysis"):
+                    if st.button("Back to Data Analysis"):
                         st.session_state.training_step = 2
                         st.rerun()
                 with col2:
                     if selected_models:
-                        if st.button("Configure Training →", type="primary", use_container_width=True):
+                        if st.button("Configure Training", type="primary", use_container_width=True):
                             st.session_state.training_step = 4
                             st.rerun()
                     else:
@@ -1609,7 +1565,7 @@ def app():
         # Navigation
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("← Back to Model Selection"):
+            if st.button("Back to Model Selection"):
                 st.session_state.training_step = 3
                 st.rerun()
         with col2:
@@ -1793,7 +1749,7 @@ def app():
             
             # REAL TRAINING PHASE - ONLY RUNS ONCE
             st.markdown('<div class="training-container">', unsafe_allow_html=True)
-            st.markdown("### Real Model Training in Progress")
+            st.markdown("### Training Progress")
             
             all_results = []
             trained_models = {}
@@ -1862,11 +1818,11 @@ def app():
         
         # Navigation - only show if training is completed
         if st.session_state.training_completed and st.session_state.model_results:
-            if st.button("View Results & Deploy →", type="primary", use_container_width=True):
+            if st.button("View Results & Deploy", type="primary", use_container_width=True):
                 st.session_state.training_step = 6
                 st.rerun()
         elif not st.session_state.training_completed:
-            if st.button("← Back to Configuration"):
+            if st.button("Back to Configuration"):
                 st.session_state.training_step = 4
                 st.rerun()
 
@@ -1877,7 +1833,7 @@ def app():
         
         if not st.session_state.model_results or not st.session_state.trained_models:
             st.error("No trained models found")
-            if st.button("← Back to Training"):
+            if st.button("Back to Training"):
                 st.session_state.training_step = 5
                 st.rerun()
             return
@@ -1947,7 +1903,7 @@ def app():
                         col2a, col2b = st.columns(2)
                         with col2a:
                             st.download_button(
-                                "📦 Download Model",
+                                "Download Model",
                                 model_bytes,
                                 file_name=filename,
                                 mime="application/octet-stream",
@@ -1956,14 +1912,14 @@ def app():
                         
                         with col2b:
                             st.download_button(
-                                "📋 Download Instructions",
+                                "Download Instructions",
                                 instructions,
                                 file_name=instructions_filename,
                                 mime="text/plain",
                                 use_container_width=True
                             )
                         
-                        st.success("✅ Complete model package exported with feature engineering pipeline!")
+                        st.success("Complete model package exported with feature engineering pipeline!")
                         st.info("The model package includes automatic feature transformation for raw input data.")
                 else:
                     st.error("Feature engineering pipeline not found")
@@ -1981,9 +1937,9 @@ def app():
                 st.session_state.training_step = 1
                 st.rerun()
         
-        # FIXED Prediction Section
-        st.markdown("### Model Prediction (COMPLETELY FIXED)")
-        st.markdown("*Test your models with consistent, reliable predictions*")
+        # Model Prediction Section
+        st.markdown("### Model Prediction")
+        st.markdown("*Test your trained models with new data*")
         
         # Model selection
         prediction_model = st.selectbox(
@@ -1991,253 +1947,65 @@ def app():
             list(st.session_state.trained_models.keys())
         )
         
-        # Input method
+        # Consolidated Debug Information
+        with st.expander("Debug Information & System Details", expanded=False):
+            feature_pipeline = st.session_state.get('feature_pipeline')
+            st.write("**Model Information:**")
+            st.write(f"- Selected Model: {prediction_model}")
+            st.write(f"- Feature Engineering: {'Yes' if feature_pipeline and len(feature_pipeline.transformations) > 0 else 'No'}")
+            st.write(f"- Problem Type: {st.session_state.training_config.get('problem_type', 'Unknown')}")
+            
+            if feature_pipeline and len(feature_pipeline.transformations) > 0:
+                st.write(f"- Feature Transformations Applied: {len(feature_pipeline.transformations)}")
+                st.write("- Original Features Required:", feature_pipeline.original_columns)
+                if feature_pipeline.target_column:
+                    st.write(f"- Target Column: {feature_pipeline.target_column}")
+            
+            preprocessor = st.session_state.get('preprocessor')
+            if preprocessor:
+                st.write("**Preprocessing Pipeline:**")
+                st.write(f"- Categorical Features: {len(preprocessor.categorical_features) if hasattr(preprocessor, 'categorical_features') else 'Unknown'}")
+                st.write(f"- Numerical Features: {len(preprocessor.numerical_features) if hasattr(preprocessor, 'numerical_features') else 'Unknown'}")
+                st.write(f"- Feature Scaling: {'Yes' if preprocessor.feature_scaler else 'No'}")
+                st.write(f"- Target Scaling: {preprocessor.target_transform_config.get('type', 'None') if hasattr(preprocessor, 'target_transform_config') else 'Unknown'}")
+        
+        # Input Method Selection
+        st.markdown("#### Choose Input Method")
         input_method = st.radio(
-            "Input method:",
-            ["Interactive", "JSON"],
+            "Select how you want to provide input:",
+            ["JSON Input", "Interactive Form"],
             horizontal=True
         )
         
-        # Show required features
-        with st.expander("Required Features (Raw Input Format)", expanded=True):
-            feature_pipeline = st.session_state.get('feature_pipeline')
-            target_column = st.session_state.training_config.get('target_column', feature_pipeline.target_column if feature_pipeline else None)
-            
-            if feature_pipeline and len(feature_pipeline.transformations) > 0:
-                # Show original raw features that user needs to provide
-                original_features = feature_pipeline.original_columns.copy()
-                if target_column and target_column in original_features:
-                    original_features.remove(target_column)
-                
-                st.info("🎯 **Provide these raw values (before any feature engineering):**")
-                
-                for feature in original_features:
-                    st.write(f"• **{feature}**")
-                
-                st.success(f"✅ The model will automatically apply {len(feature_pipeline.transformations)} feature engineering transformations")
-                with st.expander("Applied Transformations", expanded=False):
-                    for i, transform in enumerate(feature_pipeline.transformations):
-                        st.write(f"{i+1}. {transform['type'].replace('_', ' ').title()}")
-            else:
-                # No feature engineering was applied during training
-                st.warning("⚠️ **No feature engineering pipeline detected**")
-                st.info("This model was trained on raw data without feature engineering transformations.")
-                
-                # Get original features from training config or preprocessor
-                preprocessor = st.session_state.get('preprocessor')
-                if preprocessor and hasattr(preprocessor, 'feature_names'):
-                    original_features = preprocessor.feature_names
-                    if target_column and target_column in original_features:
-                        original_features = [f for f in original_features if f != target_column]
-                    
-                    st.info("🎯 **Provide these raw values (no preprocessing will be applied):**")
-                    for feature in original_features:
-                        st.write(f"• **{feature}**")
-                else:
-                    st.error("⚠️ **Original dataset not found**")
-                    st.info("💡 **Use raw values only** - the system will automatically apply feature engineering")
-                    st.error("⚠️ No truly original features found. This dataset may have been fully processed during feature engineering.")
-                    st.info("💡 Try using the original dataset (before feature engineering) for better predictions.")
-                    return
-                
-                for i, feature in enumerate(original_features, 1):
-                    if feature in df.columns:
-                        if df[feature].dtype == 'object':
-                            unique_vals = df[feature].unique()[:5]
-                            st.write(f"{i:2d}. `{feature}` (categories: {list(unique_vals)}{'...' if len(df[feature].unique()) > 5 else ''})")
-                        else:
-                            st.write(f"{i:2d}. `{feature}` (range: {df[feature].min():.2f} to {df[feature].max():.2f})")
-                
-                # Template with ORIGINAL raw values ONLY
-                template = {}
-                for feature in original_features:
-                    if feature in df.columns:
-                        # Get a reasonable sample value (not scaled)
-                        non_null_vals = df[feature].dropna()
-                        if len(non_null_vals) > 0:
-                            if df[feature].dtype == 'object':
-                                # For categorical, use most common value
-                                template[feature] = non_null_vals.mode().iloc[0] if not non_null_vals.mode().empty else str(non_null_vals.iloc[0])
-                            else:
-                                # For numeric, use median to avoid outliers
-                                template[feature] = float(non_null_vals.median()) if df[feature].dtype == 'float64' else int(non_null_vals.median())
-                        else:
-                            template[feature] = "value_here"
-                
-                st.markdown("**📋 Template (copy and modify):**")
-                st.code(json.dumps(template, indent=2), language="json")
-                
-                # Show what NOT to include
-                engineered_features = [f for f in preprocessor.feature_names if f not in original_features]
-                if engineered_features:
-                    with st.expander("ℹ️ Auto-generated features (don't include)", expanded=False):
-                        st.markdown("**These are automatically created - don't include in your input:**")
-                        for feature in engineered_features[:10]:  # Show only first 10 to avoid clutter
-                            st.write(f"• `{feature}` (auto-generated)")
-                        if len(engineered_features) > 10:
-                            st.write(f"• ... and {len(engineered_features) - 10} more engineered features")
-                        st.info("The system will create these features automatically from your input.")
-        
-        # Interactive input
-        if input_method == "Interactive":
-            st.markdown("#### Enter Raw Feature Values")
-            
-            feature_pipeline = st.session_state.get('feature_pipeline')
-            
-            # Determine the input guidance based on feature engineering status
-            if feature_pipeline and len(feature_pipeline.transformations) > 0:
-                st.info("🎯 Enter raw values only - the system will handle all feature engineering automatically")
-                # Get original features (excluding target)
-                original_features = feature_pipeline.original_columns.copy()
-                target_column = feature_pipeline.target_column
-                if target_column and target_column in original_features:
-                    original_features.remove(target_column)
-            else:
-                st.info("🎯 Enter raw values - model was trained without feature engineering")
-                # Get features from preprocessor
-                preprocessor = st.session_state.get('preprocessor')
-                if preprocessor and hasattr(preprocessor, 'feature_names'):
-                    original_features = preprocessor.feature_names.copy()
-                    target_column = st.session_state.training_config.get('target_column')
-                    if target_column and target_column in original_features:
-                        original_features.remove(target_column)
-                else:
-                    st.error("Cannot determine required features. Please retrain the model.")
-                    return
-            
-            input_data = {}
-            
-            # Get reference data for input validation
-            original_dataset = st.session_state.get('original_dataset')
-            if original_dataset is None:
-                st.error("Original dataset not found")
-                return
-            
-            # Create input widgets for each original feature
-            cols = st.columns(2)
-            for i, feature in enumerate(original_features):
-                col = cols[i % 2]
-                
-                with col:
-                    if feature in original_dataset.columns:
-                        if original_dataset[feature].dtype == 'object':
-                            # Categorical feature
-                            unique_vals = sorted(original_dataset[feature].dropna().unique())
-                            input_data[feature] = st.selectbox(
-                                f"{feature}",
-                                options=unique_vals,
-                                help=f"Select from {len(unique_vals)} categories"
-                            )
-                        else:
-                            # Numeric feature
-                            min_val = float(original_dataset[feature].min())
-                            max_val = float(original_dataset[feature].max())
-                            default_val = float(original_dataset[feature].median())
-                            
-                            input_data[feature] = st.number_input(
-                                f"{feature}",
-                                min_value=min_val,
-                                max_value=max_val,
-                                value=default_val,
-                                help=f"Range: {min_val:.2f} to {max_val:.2f}"
-                            )
-            
-            # Prediction button
-            if st.button("🎯 Make Prediction", use_container_width=True, type="primary"):
-                with st.spinner("Generating prediction..."):
-                    prediction_result = make_prediction_consistent(
-                        prediction_model, 
-                        input_data, 
-                        st.session_state.training_config
-                    )
-                    if prediction_result:
-                        if isinstance(prediction_result, dict):
-                            # Display JSON result in a nice format
-                            st.success("🎯 **Prediction Generated**")
-                            
-                            # Create styled display for prediction
-                            col1, col2 = st.columns([2, 1])
-                            with col1:
-                                for key, value in prediction_result.items():
-                                    if key != "problem_type":
-                                        # Format key for display
-                                        display_key = key.replace('_', ' ').title()
-                                        if isinstance(value, float):
-                                            st.markdown(f"**{display_key}:** {value:,.2f}")
-                                        else:
-                                            st.markdown(f"**{display_key}:** {value}")
-                            
-                            with col2:
-                                st.json(prediction_result)
-                        else:
-                            st.success(f"**{prediction_result}**")
-                        st.info("✅ Prediction generated using feature engineering pipeline")
-        
-        # JSON input
+        # Get required features
+        feature_pipeline = st.session_state.get('feature_pipeline')
+        if feature_pipeline and len(feature_pipeline.transformations) > 0:
+            original_features = [col for col in feature_pipeline.original_columns 
+                               if col != feature_pipeline.target_column]
+            st.info("**Raw values required** - the system will automatically apply feature engineering")
         else:
-            st.markdown("#### JSON Input")
-            
-            feature_pipeline = st.session_state.get('feature_pipeline')
-            
-            # Determine guidance based on feature engineering status
-            if feature_pipeline and len(feature_pipeline.transformations) > 0:
-                st.info("🎯 Use raw values only - the system will automatically apply feature engineering")
-                # Create JSON template
-                original_features = [col for col in feature_pipeline.original_columns 
-                                   if col != feature_pipeline.target_column]
+            preprocessor = st.session_state.get('preprocessor')
+            if preprocessor and hasattr(preprocessor, 'feature_names'):
+                target_column = st.session_state.training_config.get('target_column')
+                original_features = [f for f in preprocessor.feature_names if f != target_column]
             else:
-                st.info("🎯 Use raw values - model was trained without feature engineering")
-                # Get features from preprocessor or original dataset
-                preprocessor = st.session_state.get('preprocessor')
-                if preprocessor and hasattr(preprocessor, 'feature_names'):
-                    target_column = st.session_state.training_config.get('target_column')
-                    original_features = [f for f in preprocessor.feature_names if f != target_column]
-                else:
-                    st.error("Cannot determine required features")
-                    return
+                st.error("Cannot determine required features")
+                return
+            st.info("**Raw values required** - model was trained without feature engineering")
+        
+        if input_method == "JSON Input":
+            st.markdown("#### JSON Input Method")
             
-            # Create JSON template from available data
-            original_dataset = st.session_state.get('original_dataset')
-            df = st.session_state.get('df_ml_training')  # Current dataset
-            
-            template = {}
-            if original_dataset is not None:
-                # Use original dataset for template
-                for feature in original_features:
-                    if feature in original_dataset.columns:
-                        if original_dataset[feature].dtype == 'object':
-                            template[feature] = str(original_dataset[feature].mode().iloc[0])
-                        else:
-                            template[feature] = float(original_dataset[feature].median())
-                    else:
-                        template[feature] = "value_here"
-            elif df is not None:
-                # Use current dataset for template
-                for feature in original_features:
-                    if feature in df.columns:
-                        if df[feature].dtype == 'object':
-                            template[feature] = str(df[feature].mode().iloc[0])
-                        else:
-                            template[feature] = float(df[feature].median())
-                    else:
-                        template[feature] = "value_here"
-            else:
-                # Create basic template
-                for feature in original_features:
-                    template[feature] = "value_here"
-            
-            if template:
-                st.markdown("**📋 JSON Template:**")
-                st.code(json.dumps(template, indent=2), language="json")
-            
-            # JSON input area
+            # JSON input field
             json_input = st.text_area(
                 "Enter JSON data:",
                 height=200,
-                placeholder="Paste your JSON here..."
+                placeholder="Paste your JSON data here...",
+                help="Provide raw feature values as JSON object"
             )
             
-            if st.button("🎯 Predict from JSON", use_container_width=True, type="primary"):
+            # JSON Prediction Button - immediately below input
+            if st.button("Predict from JSON", use_container_width=True, type="primary"):
                 if json_input.strip():
                     try:
                         input_data = json.loads(json_input)
@@ -2249,15 +2017,13 @@ def app():
                             )
                             if prediction_result:
                                 if isinstance(prediction_result, dict):
-                                    # Display JSON result in a nice format
-                                    st.success("🎯 **Prediction Generated**")
+                                    st.success("**Prediction Generated Successfully**")
                                     
-                                    # Create styled display for prediction
+                                    # Create styled display
                                     col1, col2 = st.columns([2, 1])
                                     with col1:
                                         for key, value in prediction_result.items():
                                             if key != "problem_type":
-                                                # Format key for display
                                                 display_key = key.replace('_', ' ').title()
                                                 if isinstance(value, float):
                                                     st.markdown(f"**{display_key}:** {value:,.2f}")
@@ -2267,19 +2033,152 @@ def app():
                                     with col2:
                                         st.json(prediction_result)
                                 else:
-                                    st.success(f"**{prediction_result}**")
-                                st.info("✅ Prediction generated using feature engineering pipeline")
+                                    st.success(f"**Prediction:** {prediction_result}")
+                                st.info("Prediction generated using preprocessing pipeline")
                     except json.JSONDecodeError as e:
                         st.error(f"Invalid JSON format: {str(e)}")
                     except Exception as e:
                         st.error(f"Prediction error: {str(e)}")
                 else:
                     st.warning("Please enter JSON data")
+            
+            # JSON Template moved below (collapsible)
+            with st.expander("JSON Template & Examples", expanded=False):
+                # Create template from available data
+                template = {}
+                df = None
+                if 'df_feature_eng' in st.session_state and st.session_state['df_feature_eng'] is not None:
+                    df = st.session_state['df_feature_eng']
+                elif 'feature_eng_data' in st.session_state and st.session_state['feature_eng_data'] is not None:
+                    df = st.session_state['feature_eng_data']
+                
+                if df is not None:
+                    for feature in original_features:
+                        if feature in df.columns:
+                            if df[feature].dtype == 'object':
+                                # Get most common category
+                                try:
+                                    template[feature] = str(df[feature].mode().iloc[0])
+                                except:
+                                    template[feature] = "category_value"
+                            else:
+                                # Use median for numerical
+                                try:
+                                    template[feature] = float(df[feature].median())
+                                except:
+                                    template[feature] = 0.0
+                        else:
+                            template[feature] = "value_here"
+                else:
+                    # Basic template
+                    for feature in original_features:
+                        template[feature] = "value_here"
+                
+                st.markdown("**Template (copy and modify):**")
+                st.code(json.dumps(template, indent=2), language="json")
+                
+                # Show sample values if data available
+                if df is not None:
+                    st.markdown("**Feature Information:**")
+                    for i, feature in enumerate(original_features[:10], 1):  # Show first 10
+                        if feature in df.columns:
+                            if df[feature].dtype == 'object':
+                                unique_vals = df[feature].unique()[:3]
+                                st.write(f"{i:2d}. `{feature}`: {list(unique_vals)}{'...' if len(df[feature].unique()) > 3 else ''}")
+                            else:
+                                st.write(f"{i:2d}. `{feature}`: {df[feature].min():.2f} to {df[feature].max():.2f}")
+                    if len(original_features) > 10:
+                        st.write(f"... and {len(original_features) - 10} more features")
+        
+        else:  # Interactive Form
+            st.markdown("#### Interactive Form Input")
+            
+            # Create input fields for each feature
+            input_data = {}
+            
+            st.markdown("**Enter values for each feature:**")
+            
+            # Get sample data for better input validation
+            df = None
+            if 'df_feature_eng' in st.session_state and st.session_state['df_feature_eng'] is not None:
+                df = st.session_state['df_feature_eng']
+            elif 'feature_eng_data' in st.session_state and st.session_state['feature_eng_data'] is not None:
+                df = st.session_state['feature_eng_data']
+            
+            # Organize features into columns for better layout
+            cols = st.columns(2)
+            
+            for i, feature in enumerate(original_features):
+                col = cols[i % 2]
+                
+                with col:
+                    if df is not None and feature in df.columns:
+                        if df[feature].dtype == 'object':
+                            # Categorical feature - use selectbox
+                            unique_values = sorted(df[feature].unique())
+                            default_val = unique_values[0] if unique_values else ""
+                            input_data[feature] = st.selectbox(
+                                f"**{feature}**",
+                                unique_values,
+                                index=0,
+                                key=f"input_{feature}",
+                                help=f"Select category for {feature}"
+                            )
+                        else:
+                            # Numerical feature - use number input
+                            min_val = float(df[feature].min())
+                            max_val = float(df[feature].max())
+                            default_val = float(df[feature].median())
+                            
+                            input_data[feature] = st.number_input(
+                                f"**{feature}**",
+                                min_value=min_val,
+                                max_value=max_val,
+                                value=default_val,
+                                key=f"input_{feature}",
+                                help=f"Range: {min_val:.2f} to {max_val:.2f}"
+                            )
+                    else:
+                        # No sample data - use text input
+                        input_data[feature] = st.text_input(
+                            f"**{feature}**",
+                            key=f"input_{feature}",
+                            help=f"Enter value for {feature}"
+                        )
+            
+            # Interactive Prediction Button
+            if st.button("Make Prediction", use_container_width=True, type="primary"):
+                with st.spinner("Generating prediction..."):
+                    prediction_result = make_prediction_consistent(
+                        prediction_model, 
+                        input_data, 
+                        st.session_state.training_config
+                    )
+                    if prediction_result:
+                        if isinstance(prediction_result, dict):
+                            st.success("**Prediction Generated Successfully**")
+                            
+                            # Create styled display
+                            col1, col2 = st.columns([2, 1])
+                            with col1:
+                                for key, value in prediction_result.items():
+                                    if key != "problem_type":
+                                        display_key = key.replace('_', ' ').title()
+                                        if isinstance(value, float):
+                                            st.markdown(f"**{display_key}:** {value:,.2f}")
+                                        else:
+                                            st.markdown(f"**{display_key}:** {value}")
+                            
+                            with col2:
+                                st.json(prediction_result)
+                        else:
+                            st.success(f"**Prediction:** {prediction_result}")
+                        st.info("Prediction generated using feature engineering pipeline")
         
         # Navigation
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("← Back to Training", use_container_width=True):
+            if st.button("Back to Training", use_container_width=True):
                 st.session_state.training_step = 5
                 st.rerun()
         with col2:
