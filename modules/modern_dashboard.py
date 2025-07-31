@@ -230,25 +230,114 @@ def get_platform_css():
         letter-spacing: 1.5px;
     }
     
-    /* Button Styling with dark theme */
-    .stButton > button {
-        background: linear-gradient(135deg, #40e0ff, #64b5f6);
-        color: #0f0f23;
+    /* Flourish Studio Style Buttons */
+    .flourish-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+        color: white;
         border: none;
-        border-radius: 12px;
-        padding: 0.8rem 2rem;
-        font-weight: 600;
-        font-size: 1rem;
-        transition: all 0.4s ease;
-        box-shadow: 0 6px 20px rgba(64, 224, 255, 0.3);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        border-radius: 8px;
+        padding: 12px 24px;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-weight: 500;
+        font-size: 14px;
+        line-height: 1.4;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+        min-width: 120px;
+        text-align: center;
+    }
+    
+    .flourish-button:hover {
+        background: linear-gradient(135deg, #357ABD 0%, #2A5F94 100%);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        transform: translateY(-1px);
+    }
+    
+    .flourish-button:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+    
+    .flourish-button-secondary {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .flourish-button-secondary:hover {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.3);
+        color: white;
+    }
+    
+    .flourish-button-small {
+        padding: 8px 16px;
+        font-size: 12px;
+        min-width: 80px;
+    }
+    
+    .flourish-button-large {
+        padding: 16px 32px;
+        font-size: 16px;
+        min-width: 160px;
+    }
+    
+    .flourish-button-icon {
+        margin-right: 8px;
+        font-size: 16px;
+    }
+    
+    .flourish-button-group {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin: 16px 0;
+        flex-wrap: wrap;
+    }
+    
+    .flourish-button-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: center;
+        margin: 12px 0;
+        flex-wrap: wrap;
+    }
+    
+    /* Streamlit button override to match Flourish style */
+    .stButton > button {
+        background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 12px 24px !important;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        font-weight: 500 !important;
+        font-size: 14px !important;
+        line-height: 1.4 !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+        min-width: 120px !important;
+        text-transform: none !important;
+        letter-spacing: normal !important;
     }
     
     .stButton > button:hover {
-        transform: translateY(-4px) scale(1.05);
-        box-shadow: 0 12px 30px rgba(64, 224, 255, 0.4);
-        background: linear-gradient(135deg, #64b5f6, #40e0ff);
+        background: linear-gradient(135deg, #357ABD 0%, #2A5F94 100%) !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+        transform: translateY(-1px) !important;
+    }
+    
+    .stButton > button:active {
+        transform: translateY(0) !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
     }
     
     /* Streamlit specific dark theme overrides */
@@ -344,6 +433,66 @@ def get_platform_css():
         background: rgba(64, 224, 255, 0.5);
     }
     </style>
+    """
+
+def create_flourish_button(text: str, button_type: str = "primary", size: str = "medium", icon: str = "", onclick: str = ""):
+    """Create a Flourish Studio-style button"""
+    
+    # Button size classes
+    size_class = {
+        "small": "flourish-button-small",
+        "medium": "",
+        "large": "flourish-button-large"
+    }.get(size, "")
+    
+    # Button type classes
+    type_class = {
+        "primary": "",
+        "secondary": "flourish-button-secondary"
+    }.get(button_type, "")
+    
+    # Icon HTML
+    icon_html = f'<span class="flourish-button-icon">{icon}</span>' if icon else ""
+    
+    # Generate unique button ID
+    button_id = f"flourish_btn_{hash(text) % 10000}"
+    
+    button_html = f"""
+    <button 
+        id="{button_id}"
+        class="flourish-button {type_class} {size_class}"
+        onclick="{onclick}"
+    >
+        {icon_html}{text}
+    </button>
+    """
+    
+    return button_html
+
+def create_flourish_button_group(buttons: List[Dict], alignment: str = "center"):
+    """Create a group of Flourish Studio-style buttons"""
+    button_htmls = []
+    
+    for btn in buttons:
+        button_html = create_flourish_button(
+            text=btn.get("text", "Button"),
+            button_type=btn.get("type", "primary"),
+            size=btn.get("size", "medium"),
+            icon=btn.get("icon", ""),
+            onclick=btn.get("onclick", "")
+        )
+        button_htmls.append(button_html)
+    
+    alignment_style = {
+        "left": "justify-content: flex-start;",
+        "center": "justify-content: center;",
+        "right": "justify-content: flex-end;"
+    }.get(alignment, "justify-content: center;")
+    
+    return f"""
+    <div class="flourish-button-group" style="{alignment_style}">
+        {''.join(button_htmls)}
+    </div>
     """
 
 def create_metric_card(title: str, value: str, subtitle: str = ""):
