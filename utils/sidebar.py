@@ -19,8 +19,8 @@ def custom_sidebar():
             styles={
                 "container": {
                     "background-color": "#0e0e0e",
-                    "padding": "10px",
-                    "border-radius": "20px",
+           
+                    "border-radius": "10px",
                     "radius": "20px",
                 },
                 "icon": {"color": "#ffffff", "font-size": "20px"},

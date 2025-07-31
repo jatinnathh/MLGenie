@@ -61,10 +61,9 @@ st.markdown("""
 
 def app():
     st.markdown("""
-    <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2rem; border-radius: 15px; margin-bottom: 2rem; text-align: center;'>
-        <h1 style='color: white; margin: 0; font-size: 2.5rem;'>Advanced Data Visualization Studio</h1>
-        <p style='color: white; margin: 0.5rem 0 0 0; font-size: 1.2rem;'>Interactive charts with modern design</p>
-    </div>
+    
+        <h1 style='color: white; margin: 0; font-size: 2.5rem;'> Data Visualization Studio</h1>
+
     """, unsafe_allow_html=True)
 
     st.markdown("### Choose Data Source")

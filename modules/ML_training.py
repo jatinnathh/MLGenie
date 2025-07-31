@@ -8,6 +8,7 @@ import pickle
 import json
 import warnings
 import traceback
+from datetime import datetime
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge, Lasso
@@ -26,6 +27,92 @@ try:
     from Feature_eng import FeatureEngineeringPipeline
 except ImportError:
     st.error("Could not import FeatureEngineeringPipeline. Please ensure Feature_eng.py is available.")
+
+# Simple tracking without database
+TRACKING_AVAILABLE = False
+
+def log_model_training_activity(model_name: str, algorithm: str, model_type: str, 
+                               problem_type: str, metrics: dict, duration_seconds: int = 0):
+    """Log model training activity to dashboard"""
+    # Determine best score based on problem type
+    if problem_type == 'Classification':
+        best_score = metrics.get('accuracy', 0)
+        score_text = f"Accuracy: {best_score:.3f}" if best_score else "No accuracy score"
+    else:
+        best_score = metrics.get('r2_score', 0)
+        score_text = f"R² Score: {best_score:.3f}" if best_score else "No R² score"
+    
+    activity = {
+        'activity_type': 'model_training',
+        'description': f"Trained {algorithm} model - {score_text}",
+        'timestamp': datetime.now(),
+        'status': 'success',
+        'metadata': {
+            'model_name': model_name,
+            'algorithm': algorithm,
+            'model_type': model_type,
+            'problem_type': problem_type,
+            'metrics': metrics,
+            'training_duration': duration_seconds
+        }
+    }
+    
+    # Add to session state for dashboard
+    if 'recent_activities' not in st.session_state:
+        st.session_state.recent_activities = []
+    
+    st.session_state.recent_activities.append(activity)
+    
+    # Update dashboard stats
+    if 'dashboard_stats' not in st.session_state:
+        st.session_state.dashboard_stats = {
+            'datasets_count': 0,
+            'feature_engineering_count': 0,
+            'models_trained': 0,
+            'ml_models': 0,
+            'dl_models': 0,
+            'best_model': None,
+            'jobs_in_progress': 0
+        }
+    
+    # Update model counts
+    st.session_state.dashboard_stats['models_trained'] += 1
+    if model_type == 'ML':
+        st.session_state.dashboard_stats['ml_models'] += 1
+    else:
+        st.session_state.dashboard_stats['dl_models'] += 1
+    
+    # Update best model if this one is better
+    current_best = st.session_state.dashboard_stats.get('best_model')
+    if not current_best or best_score > current_best.get('best_score', 0):
+        st.session_state.dashboard_stats['best_model'] = {
+            'name': model_name,
+            'algorithm': algorithm,
+            'best_score': best_score,
+            'problem_type': problem_type
+        }
+    
+    # Add to model leaderboard
+    if 'model_leaderboard' not in st.session_state:
+        st.session_state.model_leaderboard = []
+    
+    model_entry = {
+        'name': model_name,
+        'algorithm': algorithm,
+        'model_type': model_type,
+        'problem_type': problem_type,
+        'best_score': best_score,
+        'training_duration_seconds': duration_seconds,
+        'training_start': datetime.now()
+    }
+    
+    st.session_state.model_leaderboard.append(model_entry)
+    
+    # Sort leaderboard by best score (descending)
+    st.session_state.model_leaderboard.sort(key=lambda x: x.get('best_score', 0), reverse=True)
+    
+    # Keep only top 20 models
+    st.session_state.model_leaderboard = st.session_state.model_leaderboard[:20]
 
 warnings.filterwarnings('ignore')
 
@@ -1772,6 +1859,17 @@ def app():
                         all_results.append(results)
                         trained_models[model_name] = trained_model
                         st.success(f"{model_name} training completed!")
+                        
+                        # Log model training activity
+                        training_duration = results.get('Training Time (seconds)', 0)
+                        log_model_training_activity(
+                            model_name=f"{model_name}_{datetime.now().strftime('%H%M%S')}",
+                            algorithm=model_name,
+                            model_type='ML',
+                            problem_type=config['problem_type'],
+                            metrics=results,
+                            duration_seconds=int(training_duration)
+                        )
                     else:
                         st.error(f"{model_name} training failed")
                     

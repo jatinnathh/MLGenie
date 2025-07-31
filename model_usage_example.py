@@ -16,16 +16,16 @@ def load_model_package(filename):
         with open(filename, 'rb') as f:
             package = pickle.load(f)
         
-        print(f"✅ Loaded model: {package['model_name']}")
-        print(f"📊 Original features: {len(package['original_columns'])}")
-        print(f"🔧 Transformations: {len(package['feature_pipeline'].transformations)}")
+        print(f"Loaded model: {package['model_name']}")
+        print(f"Original features: {len(package['original_columns'])}")
+        print(f"Transformations: {len(package['feature_pipeline'].transformations)}")
         
         return package
     except FileNotFoundError:
-        print(f"❌ Model file '{filename}' not found")
+        print(f"Model file '{filename}' not found")
         return None
     except Exception as e:
-        print(f"❌ Error loading model: {str(e)}")
+        print(f"Error loading model: {str(e)}")
         return None
 
 def make_prediction(model_package, raw_input):
@@ -35,7 +35,7 @@ def make_prediction(model_package, raw_input):
         model = model_package['model']
         feature_pipeline = model_package['feature_pipeline']
         
-        print(f"\n🔄 Processing input with {len(feature_pipeline.transformations)} transformations...")
+        print(f"\nProcessing input with {len(feature_pipeline.transformations)} transformations...")
         
         # Convert input to DataFrame
         if isinstance(raw_input, dict):
@@ -43,12 +43,12 @@ def make_prediction(model_package, raw_input):
         else:
             input_df = raw_input
         
-        print(f"📥 Raw input: {input_df.iloc[0].to_dict()}")
+        print(f"Raw input: {input_df.iloc[0].to_dict()}")
         
         # Apply feature engineering pipeline
         processed_features = feature_pipeline.transform(input_df)
         
-        print(f"🔧 Processed features: {processed_features.shape[1]} columns")
+        print(f"Processed features: {processed_features.shape[1]} columns")
         
         # Make prediction
         prediction = model.predict(processed_features.values)
@@ -71,11 +71,11 @@ def make_prediction(model_package, raw_input):
                 'problem_type': problem_type
             }
         
-        print(f"✅ Prediction: {result}")
+        print(f"Prediction: {result}")
         return result
         
     except Exception as e:
-        print(f"❌ Prediction error: {str(e)}")
+        print(f"Prediction error: {str(e)}")
         return None
 
 def validate_input(model_package, raw_input):
@@ -95,14 +95,14 @@ def validate_input(model_package, raw_input):
         extra = provided_features - required_features
         
         if missing:
-            print(f"⚠️  Missing features: {list(missing)}")
+            print(f"Missing features: {list(missing)}")
         if extra:
-            print(f"ℹ️  Extra features (ignored): {list(extra)}")
+            print(f"Extra features (ignored): {list(extra)}")
         
         return len(missing) == 0
         
     except Exception as e:
-        print(f"❌ Validation error: {str(e)}")
+        print(f"Validation error: {str(e)}")
         return False
 
 # Example usage
@@ -124,7 +124,7 @@ if __name__ == "__main__":
             "feature4": "value_x"
         }
         
-        print(f"\n📋 Expected features: {package['original_columns']}")
+        print(f"\nExpected features: {package['original_columns']}")
         
         # Validate input
         if validate_input(package, raw_input):
@@ -132,13 +132,13 @@ if __name__ == "__main__":
             result = make_prediction(package, raw_input)
             
             if result:
-                print(f"\n🎯 Final Result:")
+                print(f"\nFinal Result:")
                 print(f"   Prediction: {result['prediction']}")
                 if 'confidence' in result:
                     print(f"   Confidence: {result['confidence']}")
                 print(f"   Problem Type: {result['problem_type']}")
         else:
-            print("❌ Input validation failed")
+            print("Input validation failed")
     
     print("\n" + "=" * 40)
     print("Example completed!")
@@ -153,10 +153,10 @@ def batch_predict(model_package, input_file):
             with open(input_file, 'r') as f:
                 data = pd.DataFrame(json.load(f))
         else:
-            print(f"❌ Unsupported file format: {input_file}")
+            print(f"Unsupported file format: {input_file}")
             return None
         
-        print(f"📊 Processing {len(data)} samples...")
+        print(f"Processing {len(data)} samples...")
         
         results = []
         for idx, row in data.iterrows():
@@ -172,5 +172,5 @@ def batch_predict(model_package, input_file):
         return pd.DataFrame(results)
         
     except Exception as e:
-        print(f"❌ Batch prediction error: {str(e)}")
+        print(f"Batch prediction error: {str(e)}")
         return None

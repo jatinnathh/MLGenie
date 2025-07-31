@@ -6,6 +6,40 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler, LabelEncoder
 import pickle
 import json
 from copy import deepcopy
+from datetime import datetime
+
+# Simple tracking without database
+TRACKING_AVAILABLE = False
+
+def log_feature_engineering_activity(operation_type: str, description: str, params: dict = None):
+    """Log feature engineering activity to dashboard"""
+    activity = {
+        'activity_type': 'feature_engineering',
+        'description': description,
+        'timestamp': datetime.now(),
+        'status': 'success',
+        'metadata': params
+    }
+    
+    # Add to session state for dashboard
+    if 'recent_activities' not in st.session_state:
+        st.session_state.recent_activities = []
+    
+    st.session_state.recent_activities.append(activity)
+    
+    # Update dashboard stats
+    if 'dashboard_stats' not in st.session_state:
+        st.session_state.dashboard_stats = {
+            'datasets_count': 0,
+            'feature_engineering_count': 0,
+            'models_trained': 0,
+            'ml_models': 0,
+            'dl_models': 0,
+            'best_model': None,
+            'jobs_in_progress': 0
+        }
+    
+    st.session_state.dashboard_stats['feature_engineering_count'] += 1
 
 class FeatureEngineeringPipeline:
     """
@@ -324,7 +358,7 @@ def app():
         st.session_state.original_dataset = None
       
     local_css()
-    st.title("MLGenie Feature Engineering")
+    st.title(" Feature Engineering")
     st.markdown('<div class="section-header"><h3>Data Input</h3></div>', unsafe_allow_html=True)
     
     if "df_feature_eng" in st.session_state:
@@ -361,6 +395,32 @@ def app():
             # Save original dataset for pipeline reference
             st.session_state.original_dataset = df.copy()
             st.session_state.df_feature_eng = df.copy()
+            
+            # Log dataset upload activity
+            file_size_mb = uploaded_file.size / (1024 * 1024) if hasattr(uploaded_file, 'size') else 0
+            log_feature_engineering_activity(
+                'dataset_upload',
+                f"Dataset '{uploaded_file.name}' uploaded successfully ({df.shape[0]} rows, {df.shape[1]} columns)",
+                {
+                    'filename': uploaded_file.name,
+                    'rows': df.shape[0],
+                    'columns': df.shape[1],
+                    'size_mb': round(file_size_mb, 2)
+                }
+            )
+            
+            # Update dashboard stats for datasets
+            if 'dashboard_stats' not in st.session_state:
+                st.session_state.dashboard_stats = {
+                    'datasets_count': 0,
+                    'feature_engineering_count': 0,
+                    'models_trained': 0,
+                    'ml_models': 0,
+                    'dl_models': 0,
+                    'best_model': None,
+                    'jobs_in_progress': 0
+                }
+            st.session_state.dashboard_stats['datasets_count'] += 1
             
             # Reset pipeline for new dataset
             st.session_state.feature_pipeline = FeatureEngineeringPipeline()
@@ -633,6 +693,17 @@ def app():
                             st.session_state.df_feature_eng = df.copy()
                             st.success(f"Scaling completed successfully for {len(cols_to_scale)} features")
                             st.info("Scaling transformation saved to pipeline")
+                            
+                            # Log scaling activity
+                            log_feature_engineering_activity(
+                                'scaling',
+                                f"Applied {scaling_method} scaling to {len(cols_to_scale)} features",
+                                {
+                                    'scaling_method': scaling_method,
+                                    'columns_scaled': cols_to_scale,
+                                    'num_features': len(cols_to_scale)
+                                }
+                            )
                         except Exception as e:
                             st.error(f"Error: {str(e)}")
         elif basic_operation == "One-Hot Encoding":
@@ -667,6 +738,17 @@ def app():
                         new_cols = [col for col in df.columns if any(sc in col for sc in selected_cols)]
                         st.info(f"Added {len(new_cols)} new columns")
                         st.info("One-hot encoding transformation saved to pipeline")
+                        
+                        # Log one-hot encoding activity
+                        log_feature_engineering_activity(
+                            'one_hot_encoding',
+                            f"Applied one-hot encoding to {len(selected_cols)} categorical columns",
+                            {
+                                'columns_encoded': selected_cols,
+                                'new_columns_created': len(new_cols),
+                                'num_features': len(selected_cols)
+                            }
+                        )
                     except Exception as e:
                         st.error(f"Error: {str(e)}")
     
