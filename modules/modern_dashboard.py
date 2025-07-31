@@ -743,6 +743,49 @@ def app():
     </div>
     """, unsafe_allow_html=True)
     
+    # Flourish Studio-style Action Buttons
+    action_buttons = [
+        {
+            "text": "📊 Visualize Data",
+            "type": "primary",
+            "size": "medium",
+            "icon": "",
+            "onclick": "window.parent.postMessage({type: 'streamlit:setComponentValue', value: 'visualize'}, '*')"
+        },
+        {
+            "text": "🔧 Feature Engineering",
+            "type": "secondary",
+            "size": "medium",
+            "icon": "",
+            "onclick": "window.parent.postMessage({type: 'streamlit:setComponentValue', value: 'feature_eng'}, '*')"
+        },
+        {
+            "text": "🤖 Train Models",
+            "type": "primary",
+            "size": "medium",
+            "icon": "",
+            "onclick": "window.parent.postMessage({type: 'streamlit:setComponentValue', value: 'ml_training'}, '*')"
+        },
+        {
+            "text": "🧠 Deep Learning",
+            "type": "secondary",
+            "size": "medium",
+            "icon": "",
+            "onclick": "window.parent.postMessage({type: 'streamlit:setComponentValue', value: 'dl_training'}, '*')"
+        }
+    ]
+    
+    st.markdown(create_flourish_button_group(action_buttons, "center"), unsafe_allow_html=True)
+    
+    # Quick Actions Row
+    quick_actions = [
+        {"text": "Refresh", "type": "secondary", "size": "small"},
+        {"text": "Export Data", "type": "secondary", "size": "small"},
+        {"text": "Settings", "type": "secondary", "size": "small"}
+    ]
+    
+    st.markdown(create_flourish_button_group(quick_actions, "right"), unsafe_allow_html=True)
+    
     # Get real stats from session state
     stats = st.session_state.dashboard_stats
     
