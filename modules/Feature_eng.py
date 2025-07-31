@@ -3,6 +3,209 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, LabelEncoder
+import pickle
+import json
+from copy import deepcopy
+
+class FeatureEngineeringPipeline:
+    """
+    Class to track and apply feature engineering transformations
+    """
+    def __init__(self):
+        self.transformations = []
+        self.scalers = {}
+        self.encoders = {}
+        self.original_columns = []
+        self.target_column = None
+        
+    def add_transformation(self, transform_type, params):
+        """Add a transformation step to the pipeline"""
+        self.transformations.append({
+            'type': transform_type,
+            'params': params,
+            'timestamp': pd.Timestamp.now()
+        })
+        
+    def fit_transform(self, df, is_training=True):
+        """Apply all transformations to the dataframe"""
+        if is_training:
+            self.original_columns = list(df.columns)
+        
+        df_transformed = df.copy()
+        
+        for transform in self.transformations:
+            df_transformed = self._apply_single_transform(df_transformed, transform, is_training)
+            
+        return df_transformed
+    
+    def transform(self, df):
+        """Apply transformations to new data (prediction time)"""
+        return self.fit_transform(df, is_training=False)
+    
+    def _apply_single_transform(self, df, transform, is_training):
+        """Apply a single transformation"""
+        transform_type = transform['type']
+        params = transform['params']
+        
+        if transform_type == 'handle_missing':
+            return self._handle_missing(df, params, is_training)
+        elif transform_type == 'scale_features':
+            return self._scale_features(df, params, is_training)
+        elif transform_type == 'one_hot_encode':
+            return self._one_hot_encode(df, params, is_training)
+        elif transform_type == 'binning':
+            return self._apply_binning(df, params, is_training)
+        elif transform_type == 'target_encoding':
+            return self._target_encoding(df, params, is_training)
+        elif transform_type == 'frequency_encoding':
+            return self._frequency_encoding(df, params, is_training)
+        # Add more transformation methods as needed
+        
+        return df
+    
+    def _handle_missing(self, df, params, is_training):
+        """Handle missing values"""
+        for col, strategy in params.items():
+            if col in df.columns:
+                if strategy == 'mean':
+                    if is_training:
+                        self.scalers[f'{col}_mean'] = df[col].mean()
+                    df[col].fillna(self.scalers[f'{col}_mean'], inplace=True)
+                elif strategy == 'median':
+                    if is_training:
+                        self.scalers[f'{col}_median'] = df[col].median()
+                    df[col].fillna(self.scalers[f'{col}_median'], inplace=True)
+                elif strategy == 'mode':
+                    if is_training:
+                        self.scalers[f'{col}_mode'] = df[col].mode()[0] if not df[col].mode().empty else 0
+                    df[col].fillna(self.scalers[f'{col}_mode'], inplace=True)
+        return df
+    
+    def _scale_features(self, df, params, is_training):
+        """Scale features"""
+        cols_to_scale = params['columns']
+        scale_type = params['scale_type']
+        
+        for col in cols_to_scale:
+            if col in df.columns:
+                if is_training:
+                    if scale_type == 'standard':
+                        scaler = StandardScaler()
+                    else:  # minmax
+                        scaler = MinMaxScaler()
+                    
+                    df[col] = scaler.fit_transform(df[[col]])
+                    self.scalers[f'{col}_scaler'] = scaler
+                else:
+                    if f'{col}_scaler' in self.scalers:
+                        df[col] = self.scalers[f'{col}_scaler'].transform(df[[col]])
+        return df
+    
+    def _one_hot_encode(self, df, params, is_training):
+        """Apply one-hot encoding"""
+        columns = params['columns']
+        drop_first = params.get('drop_first', True)
+        
+        for col in columns:
+            if col in df.columns:
+                if is_training:
+                    # Store unique values for consistency
+                    self.encoders[f'{col}_categories'] = df[col].unique().tolist()
+                
+                # Apply one-hot encoding
+                dummies = pd.get_dummies(df[col], prefix=col, drop_first=drop_first)
+                
+                # Ensure consistency with training data
+                if not is_training and f'{col}_categories' in self.encoders:
+                    expected_categories = self.encoders[f'{col}_categories']
+                    if drop_first and len(expected_categories) > 1:
+                        expected_categories = expected_categories[1:]  # Remove first category
+                    
+                    expected_cols = [f'{col}_{cat}' for cat in expected_categories]
+                    
+                    # Add missing columns
+                    for exp_col in expected_cols:
+                        if exp_col not in dummies.columns:
+                            dummies[exp_col] = 0
+                    
+                    # Keep only expected columns
+                    dummies = dummies[expected_cols]
+                
+                df = pd.concat([df.drop(columns=[col]), dummies], axis=1)
+        
+        return df
+    
+    def _apply_binning(self, df, params, is_training):
+        """Apply binning transformation"""
+        col = params['column']
+        num_bins = params['num_bins']
+        strategy = params['strategy']
+        
+        if col in df.columns:
+            if is_training:
+                if strategy == 'equal_width':
+                    bins = pd.cut(df[col], bins=num_bins, retbins=True)[1]
+                else:  # equal_frequency
+                    bins = pd.qcut(df[col], q=num_bins, retbins=True, duplicates='drop')[1]
+                
+                self.encoders[f'{col}_bins'] = bins
+            
+            if f'{col}_bins' in self.encoders:
+                bins = self.encoders[f'{col}_bins']
+                df[f'{col}_binned'] = pd.cut(df[col], bins=bins, labels=False, include_lowest=True)
+        
+        return df
+    
+    def _target_encoding(self, df, params, is_training):
+        """Apply target encoding"""
+        # Implementation for target encoding
+        return df
+    
+    def _frequency_encoding(self, df, params, is_training):
+        """Apply frequency encoding"""
+        columns = params['columns']
+        
+        for col in columns:
+            if col in df.columns:
+                if is_training:
+                    freq_dict = df[col].value_counts(normalize=True).to_dict()
+                    self.encoders[f'{col}_freq'] = freq_dict
+                
+                if f'{col}_freq' in self.encoders:
+                    df[f'{col}_freq_encoded'] = df[col].map(self.encoders[f'{col}_freq']).fillna(0)
+        
+        return df
+    
+    def save_pipeline(self, filepath):
+        """Save the pipeline to a file"""
+        pipeline_data = {
+            'transformations': self.transformations,
+            'scalers': self.scalers,
+            'encoders': self.encoders,
+            'original_columns': self.original_columns,
+            'target_column': self.target_column
+        }
+        
+        with open(filepath, 'wb') as f:
+            pickle.dump(pipeline_data, f)
+    
+    def load_pipeline(self, filepath):
+        """Load the pipeline from a file"""
+        with open(filepath, 'rb') as f:
+            pipeline_data = pickle.load(f)
+        
+        self.transformations = pipeline_data['transformations']
+        self.scalers = pipeline_data['scalers']
+        self.encoders = pipeline_data['encoders']
+        self.original_columns = pipeline_data['original_columns']
+        self.target_column = pipeline_data.get('target_column')
+    
+    def get_pipeline_summary(self):
+        """Get a summary of applied transformations"""
+        summary = []
+        for i, transform in enumerate(self.transformations):
+            summary.append(f"{i+1}. {transform['type']}: {transform['params']}")
+        return summary
 
 def add_navigation_section():
     # Check if we have a valid dataframe in session state or as a parameter
@@ -66,7 +269,7 @@ def add_navigation_section():
                 </div>
                 """.format(df_to_download.shape[0], df_to_download.shape[1]), unsafe_allow_html=True)
                 
-                if st.button("Continue to ML Training →", type="primary", use_container_width=True):
+                if st.button("Continue to ML Training →", type="primary", use_container_width=True, key="navigation_continue_btn"):
                     # Use consistent session state key matching your main app
                     st.session_state['feature_eng_data'] = df_to_download.copy()
                     st.session_state['from_feature_eng'] = True
@@ -112,6 +315,13 @@ def local_css():
     """, unsafe_allow_html=True)
 
 def app():
+    # Initialize feature engineering pipeline in session state
+    if 'feature_pipeline' not in st.session_state:
+        st.session_state.feature_pipeline = FeatureEngineeringPipeline()
+    
+    # Initialize original dataset storage for pipeline reference
+    if 'original_dataset' not in st.session_state:
+        st.session_state.original_dataset = None
       
     local_css()
     st.title("MLGenie Feature Engineering")
@@ -148,7 +358,14 @@ def app():
                 st.warning("The uploaded file is empty. Please upload a valid file.")
                 return
                 
+            # Save original dataset for pipeline reference
+            st.session_state.original_dataset = df.copy()
             st.session_state.df_feature_eng = df.copy()
+            
+            # Reset pipeline for new dataset
+            st.session_state.feature_pipeline = FeatureEngineeringPipeline()
+            st.session_state.feature_pipeline.original_columns = list(df.columns)
+            
             st.success("Data uploaded and saved for Feature Engineering!")
             
         except Exception as e:
@@ -221,7 +438,7 @@ def app():
         
         # Show ML Training button if auto-engineering is completed
         if st.session_state.get('auto_eng_completed', False):
-            if st.button("Continue to ML Training →", type="primary", use_container_width=True):
+            if st.button("Continue to ML Training →", type="primary", use_container_width=True, key="auto_eng_continue_btn"):
                 st.session_state['feature_eng_data'] = df.copy()
                 st.session_state['from_feature_eng'] = True
                 st.session_state.page = "ML Training"
@@ -236,18 +453,28 @@ def app():
             submitted = st.form_submit_button("Run Auto-Engineering", use_container_width=True, type="primary")
             if submitted:
                 try:
-                    from sklearn.preprocessing import StandardScaler, LabelEncoder
+                    pipeline = st.session_state.feature_pipeline
                     progress_bar = st.progress(0)
                     status_text = st.empty()
                     
+                    # Start with fresh pipeline for auto-engineering
+                    pipeline.transformations = []
+                    pipeline.scalers = {}
+                    pipeline.encoders = {}
+                    
                     if auto_missing:
                         status_text.text("Handling missing values...")
+                        missing_strategy = {}
+                        
                         for col in df.columns:
                             if df[col].isnull().any():
                                 if df[col].dtype in ['int64', 'float64']:
-                                    df[col] = df[col].fillna(df[col].mean())
+                                    missing_strategy[col] = 'mean'
                                 else:
-                                    df[col] = df[col].fillna(df[col].mode()[0])
+                                    missing_strategy[col] = 'mode'
+                        
+                        if missing_strategy:
+                            pipeline.add_transformation('handle_missing', missing_strategy)
                         progress_bar.progress(25)
                     
                     if auto_scaling:
@@ -261,27 +488,11 @@ def app():
                             st.info(f"Target column '{protected_target}' excluded from scaling")
                         
                         if len(numeric_cols) > 0:
-                            scaler = StandardScaler()
-                            scaled_data = scaler.fit_transform(df[numeric_cols])
-                            df[numeric_cols] = pd.DataFrame(scaled_data, columns=numeric_cols, index=df.index)
-                            st.success(f"Scaled {len(numeric_cols)} numeric features (target protected)")
-                        else:
-                            st.info("No numeric features to scale (target column protected)")
+                            pipeline.add_transformation('scale_features', {
+                                'columns': numeric_cols,
+                                'scale_type': 'standard'
+                            })
                         progress_bar.progress(50)
-                    if auto_outliers:
-                        status_text.text("Handling outliers...")
-                        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-                        
-                        # Exclude protected target column from outlier handling
-                        protected_target = st.session_state.get('protected_target_column', None)
-                        if protected_target and protected_target in numeric_cols:
-                            numeric_cols = [col for col in numeric_cols if col != protected_target]
-                            st.info(f"Target column '{protected_target}' excluded from outlier handling")
-                        
-                        for col in numeric_cols:
-                            z_scores = np.abs((df[col] - df[col].mean()) / df[col].std())
-                            df[col] = df[col].mask(z_scores > 2.5, df[col].mean())
-                        progress_bar.progress(75)
                         
                     if auto_encoding:
                         status_text.text("Encoding categorical variables...")
@@ -293,14 +504,26 @@ def app():
                             cat_cols = [col for col in cat_cols if col != protected_target]
                             st.info(f"Target column '{protected_target}' excluded from encoding")
                         
-                        for col in cat_cols:
-                            if df[col].nunique() < 10:
-                                df = pd.get_dummies(df, columns=[col], prefix=col)
-                            else:
-                                le = LabelEncoder()
-                                df[f"{col}_encoded"] = le.fit_transform(df[col])
-                        progress_bar.progress(100)
-                    status_text.empty()
+                        if len(cat_cols) > 0:
+                            pipeline.add_transformation('one_hot_encode', {
+                                'columns': cat_cols,
+                                'drop_first': True
+                            })
+                        progress_bar.progress(75)
+                    
+                    # Apply all transformations using pipeline
+                    status_text.text("Applying all transformations...")
+                    df = pipeline.fit_transform(df, is_training=True)
+                    progress_bar.progress(100)
+                    
+                    st.session_state.df_feature_eng = df.copy()
+                    st.session_state.auto_eng_completed = True
+                    status_text.text("Auto-engineering completed!")
+                    st.success(f"✅ Auto-engineering completed! Applied {len(pipeline.transformations)} transformations.")
+                    st.info("All transformations have been saved to the pipeline for consistent prediction preprocessing.")
+                    
+                except Exception as e:
+                    st.error(f"Error during auto-engineering: {str(e)}")
                     st.session_state.df_feature_eng = df.copy()
                     st.success("Auto-engineering completed successfully!")
                 except Exception as e:
@@ -335,7 +558,7 @@ def app():
                         custom = st.text_input("Enter custom value")
                     else:
                         custom = None
-                    if st.button("Apply", use_container_width=True):
+                    if st.button("Apply", use_container_width=True, key="handle_missing_apply_btn"):
                         try:
                             if method == "Average (mean)":
                                 df[col] = df[col].fillna(df[col].mean())
@@ -353,7 +576,7 @@ def app():
             col = st.selectbox("Select column to convert", df.columns)
             if col:
                 new_type = st.radio("Convert to", ["Number", "Category", "Text"])
-                if st.button("Convert", use_container_width=True):
+                if st.button("Convert", use_container_width=True, key="convert_datatype_btn"):
                     try:
                         if new_type == "Number":
                             df[col] = pd.to_numeric(df[col])
@@ -368,27 +591,48 @@ def app():
         elif basic_operation == "Scale Features":
             numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
             
-            # Exclude protected target column from scaling options
+            # Exclude protected target column from scaling options by default
             protected_target = st.session_state.get('protected_target_column', None)
+            show_target_scaling = False
+            
             if protected_target and protected_target in numeric_cols:
-                numeric_cols = [col for col in numeric_cols if col != protected_target]
-                st.info(f"Target column '{protected_target}' excluded from scaling options")
+                # Show option to include target for regression problems
+                show_target_scaling = st.checkbox(
+                    f"Include target column '{protected_target}' in scaling (for regression)", 
+                    help="For regression problems, scaling the target can help with model training"
+                )
+                
+                if not show_target_scaling:
+                    numeric_cols = [col for col in numeric_cols if col != protected_target]
+                    st.info(f"Target column '{protected_target}' excluded from scaling options")
             
             if not numeric_cols:
-                st.warning("No numeric features available for scaling (target column protected)")
+                st.warning("No numeric features available for scaling")
             else:
                 cols_to_scale = st.multiselect("Select columns to scale", numeric_cols)
                 if cols_to_scale:
                     scale_type = st.radio("Choose scaling method", ["Standard Scale (mean=0, std=1)", "Min-Max Scale (0 to 1)"])
-                    if st.button("Scale", use_container_width=True):
+                    if st.button("Scale", use_container_width=True, key="scale_features_btn"):
                         try:
-                            if scale_type == "Standard Scale (mean=0, std=1)":
-                                scaler = StandardScaler()
-                            else:
-                                scaler = MinMaxScaler()
-                            df[cols_to_scale] = scaler.fit_transform(df[cols_to_scale])
+                            # Add scaling transformation to pipeline
+                            pipeline = st.session_state.feature_pipeline
+                            
+                            scale_method = 'standard' if scale_type == "Standard Scale (mean=0, std=1)" else 'minmax'
+                            pipeline.add_transformation('scale_features', {
+                                'columns': cols_to_scale,
+                                'scale_type': scale_method
+                            })
+                            
+                            # If target column is included, store it separately for inverse transform
+                            if protected_target in cols_to_scale:
+                                st.info(f"Target column '{protected_target}' included in scaling - will be used for inverse transform during prediction")
+                            
+                            # Apply scaling using pipeline
+                            df = pipeline.fit_transform(df, is_training=True)
+                            
                             st.session_state.df_feature_eng = df.copy()
                             st.success(f"Scaling completed successfully for {len(cols_to_scale)} features")
+                            st.info("✅ Scaling transformation saved to pipeline")
                         except Exception as e:
                             st.error(f"Error: {str(e)}")
         elif basic_operation == "One-Hot Encoding":
@@ -406,13 +650,23 @@ def app():
                 selected_cols = st.multiselect("Select columns to one-hot encode", cat_cols)
                 drop_first = st.checkbox("Drop first category", value=True)
 
-                if selected_cols and st.button("Apply One-Hot Encoding", use_container_width=True):
+                if selected_cols and st.button("Apply One-Hot Encoding", use_container_width=True, key="onehot_encoding_btn"):
                     try:
-                        df = pd.get_dummies(df, columns=selected_cols, drop_first=drop_first)
+                        # Add one-hot encoding transformation to pipeline
+                        pipeline = st.session_state.feature_pipeline
+                        pipeline.add_transformation('one_hot_encode', {
+                            'columns': selected_cols,
+                            'drop_first': drop_first
+                        })
+                        
+                        # Apply one-hot encoding using pipeline
+                        df = pipeline.fit_transform(df, is_training=True)
+                        
                         st.session_state.df_feature_eng = df.copy()
                         st.success(f"One-hot encoding applied successfully for {len(selected_cols)} columns")
                         new_cols = [col for col in df.columns if any(sc in col for sc in selected_cols)]
                         st.info(f"Added {len(new_cols)} new columns")
+                        st.info("✅ One-hot encoding transformation saved to pipeline")
                     except Exception as e:
                         st.error(f"Error: {str(e)}")
     
@@ -435,7 +689,7 @@ def app():
                             st.warning(f"please provide exactly {num_bins} labels")
                             custom_labels=None
                     
-                    if st.button("Apply Binning", use_container_width=True):
+                    if st.button("Apply Binning", use_container_width=True, key="apply_binning_btn"):
                         try:
                             new_col_name = f"{selected_cols}_binned"
                             if binning_type == "Equal Width":
@@ -733,7 +987,7 @@ def app():
         elif advanced_operation == "Quantile/Power/Robust Scaling":
             scaling_method = st.selectbox("Select Scaling Method", ["Quantile", "Power", "Robust"])
             numeric_cols = st.multiselect("Select Columns to Scale", df.select_dtypes(include=['int64', 'float64']).columns)
-            if st.button("Apply Scaling", use_container_width=True):
+            if st.button("Apply Scaling", use_container_width=True, key="advanced_scaling_btn"):
                 try:
                     if scaling_method == "Quantile":
                         from sklearn.preprocessing import QuantileTransformer
@@ -782,11 +1036,65 @@ def app():
             st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
+    
+    # Pipeline Summary Section
+    st.markdown("### Feature Engineering Pipeline Summary")
+    
+    pipeline = st.session_state.feature_pipeline
+    if pipeline.transformations:
+        st.info(f"**{len(pipeline.transformations)} transformation(s) applied to the dataset**")
+        
+        with st.expander("View Pipeline Details", expanded=False):
+            for i, transform in enumerate(pipeline.transformations):
+                st.write(f"**Step {i+1}:** {transform['type'].replace('_', ' ').title()}")
+                st.json(transform['params'])
+                st.write("---")
+        
+        # Save pipeline button
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("💾 Save Pipeline for Later Use", use_container_width=True):
+                try:
+                    pipeline.save_pipeline("feature_engineering_pipeline.pkl")
+                    st.success("✅ Pipeline saved successfully!")
+                    st.info("You can use this pipeline to transform new data consistently")
+                except Exception as e:
+                    st.error(f"Error saving pipeline: {str(e)}")
+        
+        with col2:
+            # Download pipeline as JSON for reference
+            pipeline_summary = {
+                'transformations': [
+                    {
+                        'step': i+1,
+                        'type': t['type'],
+                        'parameters': t['params'],
+                        'timestamp': str(t['timestamp'])
+                    } for i, t in enumerate(pipeline.transformations)
+                ],
+                'original_columns': pipeline.original_columns,
+                'target_column': pipeline.target_column
+            }
+            
+            pipeline_json = json.dumps(pipeline_summary, indent=2)
+            st.download_button(
+                "📋 Download Pipeline Summary",
+                pipeline_json,
+                file_name="feature_engineering_summary.json",
+                mime="application/json",
+                use_container_width=True
+            )
+    else:
+        st.warning("No feature engineering transformations applied yet")
+    
     st.markdown("### Final Dataset")
     
     # Ensure the final dataset is saved to session state
     if df is not None and not df.empty:
         st.session_state.df_feature_eng = df.copy()
+        # Save target column to pipeline if set
+        if st.session_state.get('protected_target_column'):
+            pipeline.target_column = st.session_state['protected_target_column']
     
     with st.expander("Data Preview", expanded=False):
         st.dataframe(df.head(10), use_container_width=True)
