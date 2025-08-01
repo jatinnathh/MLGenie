@@ -36,8 +36,7 @@ def _load_global_stats() -> Dict:
                 stats = json.load(f)
                 return {**default_stats, **stats}
         return default_stats
-    except Exception as e:
-        print(f"Error loading stats: {e}")
+    except Exception:
         return default_stats
 
 def _save_global_stats(stats: Dict):
@@ -47,8 +46,8 @@ def _save_global_stats(stats: Dict):
             stats['last_updated'] = datetime.now().isoformat()
             with open(STATS_FILE, 'w') as f:
                 json.dump(stats, f, indent=2, default=str)
-    except Exception as e:
-        print(f"Error saving stats: {e}")
+    except Exception:
+        pass
 
 def _load_global_activities() -> list:
     """Load global activities from file"""
@@ -57,8 +56,7 @@ def _load_global_activities() -> list:
             with open(ACTIVITIES_FILE, 'r') as f:
                 return json.load(f)
         return []
-    except Exception as e:
-        print(f"Error loading activities: {e}")
+    except Exception:
         return []
 
 def _save_global_activities(activities: list):
@@ -69,8 +67,8 @@ def _save_global_activities(activities: list):
             activities = activities[-100:]
             with open(ACTIVITIES_FILE, 'w') as f:
                 json.dump(activities, f, indent=2, default=str)
-    except Exception as e:
-        print(f"Error saving activities: {e}")
+    except Exception:
+        pass
 
 def increment_datasets_count():
     """Increment dataset upload counter globally"""

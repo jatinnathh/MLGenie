@@ -1193,7 +1193,6 @@ processed_features = feature_pipeline.transform(input_df)
 
 # Make prediction
 prediction = model.predict(processed_features.values)
-print(f"Prediction: {{prediction[0]}}")
 ```
 
 ## Important Notes:

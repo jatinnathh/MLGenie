@@ -1,10 +1,11 @@
 {
-  "datasets_count": 23,
-  "feature_engineering_count": 1,
+  "datasets_count": 0,
   "models_trained": 0,
-  "ml_models": 0,
-  "dl_models": 0,
-  "best_model": null,
-  "jobs_in_progress": 0,
-  "last_updated": "2025-08-01T15:10:47.929933"
+  "best_accuracy": 0.0,
+  "total_training_time": 0,
+  "users_count": 1,
+  "ml_models_trained": 0,
+  "dl_models_trained": 0,
+  "total_predictions": 0,
+  "last_updated": "2025-08-01T15:35:00.000000"
 }
