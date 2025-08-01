@@ -5,6 +5,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+from utils.global_dashboard_tracker import increment_datasets_count, log_activity
 
 st.markdown("""
 <style>
@@ -79,14 +81,16 @@ def app():
     
     with col2:
         use_sample = st.button("Use Sample Data", 
-                             help="Load sample data to explore all visualization capabilities",
+                             help="Load sample data to explore visualization ",
                              use_container_width=True)
 
     if use_sample:
         df = create_sample_data()
         st.session_state.df_visualize = df
-        st.success("Sample data loaded successfully! Explore various visualizations with our comprehensive demo dataset.")
-        
+        increment_datasets_count()
+        log_activity("sample_data_loaded", "Loaded sample data for visualization")
+        st.success("Sample data loaded. Explore various visualizations with our comprehensive demo dataset.")
+
     if uploaded_file:
         if uploaded_file.name.endswith(".csv"):
             df = pd.read_csv(uploaded_file)
@@ -101,6 +105,8 @@ def app():
             st.warning("The uploaded file is empty. Please upload a valid file.")
             return
         st.session_state.df_visualize = df
+        increment_datasets_count()
+        log_activity("dataset_uploaded", f"Uploaded {uploaded_file.name} for visualization")
         st.success("Data uploaded and saved for Visualize!")
 
     if "df_visualize" in st.session_state:
@@ -125,6 +131,7 @@ def app():
     numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
     cat_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
     date_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
+
     # Try to detect date columns from object columns
     for col in cat_cols:
         try:
@@ -132,13 +139,13 @@ def app():
             if col not in date_cols:
                 date_cols.append(col)
         except Exception:
-            pass
-    # Initialize session state
+            pass    # Initialize session state
     if 'selected_category' not in st.session_state:
         st.session_state.selected_category = None
     if 'selected_chart' not in st.session_state:
         st.session_state.selected_chart = None
     # Category selection with enhanced UI
+
     st.markdown("## Select Visualization Category")
     # Create category buttons in a row
     categories = [
@@ -242,6 +249,7 @@ def app():
         chart_options = [
             ("Time Series", "timeseries"),
             ("Seasonal Plot", "seasonal"),
+            ("Seasonal Plot Advanced", "seasonal_plot"),
             ("Decomposition", "decomposition"),
             ("Candlestick", "candlestick"),
             ("Forecast", "forecast"),
@@ -373,6 +381,9 @@ def generate_comparison_chart(df, numeric_cols, cat_cols):
     """Generate comparison charts"""
     chart_type = st.session_state.selected_chart
     
+    # Professional color palette
+    default_colors = ["#4C72B0", "#55A868", "#C44E52", "#8172B3", "#CCB974", "#64B5CD"]
+    
     if chart_type == "bar":
         col1, col2 = st.columns(2)
         with col1:
@@ -441,7 +452,21 @@ def generate_comparison_chart(df, numeric_cols, cat_cols):
                 st.warning("Need at least 3 numeric columns for parallel coordinates plot.")
         else:
             st.warning("Need at least 3 numeric columns for parallel coordinates plot.")
-        # Distribution overview
+    
+    elif chart_type == "waterfall":
+        if cat_cols and numeric_cols:
+            col1, col2 = st.columns(2)
+            with col1:
+                category_col = st.selectbox("Category column", cat_cols, key="waterfall_cat")
+            with col2:
+                value_col = st.selectbox("Value column", numeric_cols, key="waterfall_val")
+            
+            fig = create_waterfall_chart(df, category_col, value_col)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Need both categorical and numeric columns for waterfall chart")
+    
+    # Distribution overview
     if numeric_cols:
         st.subheader("Distribution Overview")
         cols = st.columns(min(3, len(numeric_cols)))
@@ -451,21 +476,157 @@ def generate_comparison_chart(df, numeric_cols, cat_cols):
                 fig.update_layout(title=f"Distribution of {col}", template="plotly_white")
                 st.plotly_chart(fig, use_container_width=True)
     elif chart_type == "radar":
-        if len(numeric_cols) >= 2:
+        if len(numeric_cols) >= 3:  # Need multiple metrics for radar
+            st.markdown("**Select metrics for radar chart:**")
+            
+            # Option 1: Multiple metrics for one category
             col1, col2 = st.columns(2)
             with col1:
-                category = st.selectbox("Category", cat_cols, key="radar_cat")
+                radar_type = st.radio("Radar type:", ["Multiple Metrics", "Category Comparison"], key="radar_type")
             with col2:
-                value = st.selectbox("Value", numeric_cols, key="radar_val")
+                if cat_cols:
+                    color_by = st.selectbox("Color by (optional):", ["None"] + cat_cols, key="radar_color")
+                else:
+                    color_by = "None"
             
-            radar_data = df.groupby(category)[value].mean().reset_index()
-            fig = px.line_polar(radar_data, r=value, theta=category, line_close=True, 
-                               color_discrete_sequence=px.colors.qualitative.Set2)
-            fig.update_traces(fill='toself')
-            fig.update_layout(title="Radar Chart", template="plotly_white")
-            st.plotly_chart(fig, use_container_width=True)
+            if radar_type == "Multiple Metrics":
+                # Select multiple numeric columns as metrics
+                selected_metrics = st.multiselect(
+                    "Select metrics (3+ recommended):", 
+                    numeric_cols, 
+                    default=numeric_cols[:min(5, len(numeric_cols))],
+                    key="radar_metrics"
+                )
+                
+                if len(selected_metrics) >= 3:
+                    if cat_cols and color_by != "None":
+                        # Radar chart with categories
+                        category_col = color_by
+                        
+                        # Get unique categories (limit to prevent overcrowding)
+                        unique_categories = df[category_col].unique()[:5]  # Limit to 5 categories
+                        
+                        fig = go.Figure()
+                        
+                        colors = px.colors.qualitative.Set2
+                        
+                        for i, category in enumerate(unique_categories):
+                            category_data = df[df[category_col] == category]
+                            
+                            # Calculate mean values for each metric
+                            values = []
+                            for metric in selected_metrics:
+                                values.append(category_data[metric].mean())
+                            
+                            # Add first value at end to close the radar
+                            values.append(values[0])
+                            metrics_labels = selected_metrics + [selected_metrics[0]]
+                            
+                            fig.add_trace(go.Scatterpolar(
+                                r=values,
+                                theta=metrics_labels,
+                                fill='toself',
+                                name=str(category),
+                                line_color=colors[i % len(colors)]
+                            ))
+                        
+                        fig.update_layout(
+                            polar=dict(
+                                radialaxis=dict(
+                                    visible=True,
+                                    range=[0, max([df[col].max() for col in selected_metrics])]
+                                )
+                            ),
+                            showlegend=True,
+                            title="Multi-Category Radar Chart",
+                            template="plotly_white"
+                        )
+                    else:
+                        # Single radar showing overall metrics
+                        values = []
+                        for metric in selected_metrics:
+                            values.append(df[metric].mean())
+                        
+                        # Add first value at end to close the radar
+                        values.append(values[0])
+                        metrics_labels = selected_metrics + [selected_metrics[0]]
+                        
+                        fig = go.Figure()
+                        fig.add_trace(go.Scatterpolar(
+                            r=values,
+                            theta=metrics_labels,
+                            fill='toself',
+                            name='Metrics',
+                            line_color=default_colors[0]
+                        ))
+                        
+                        fig.update_layout(
+                            polar=dict(
+                                radialaxis=dict(
+                                    visible=True,
+                                    range=[0, max(values[:-1])]  # Exclude the duplicate first value
+                                )
+                            ),
+                            showlegend=False,
+                            title="Metrics Radar Chart",
+                            template="plotly_white"
+                        )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("Please select at least 3 metrics for a meaningful radar chart")
+            
+            else:  # Category Comparison
+                if cat_cols:
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        category_col = st.selectbox("Category column:", cat_cols, key="radar_cat_comp")
+                    with col2:
+                        metric_col = st.selectbox("Metric to compare:", numeric_cols, key="radar_metric_comp")
+                    
+                    # Group by category and get mean values
+                    radar_data = df.groupby(category_col)[metric_col].mean().reset_index()
+                    
+                    # Limit categories to prevent overcrowding
+                    if len(radar_data) > 8:
+                        radar_data = radar_data.nlargest(8, metric_col)
+                        st.warning("Showing top 8 categories to prevent chart overcrowding")
+                    
+                    # Prepare data for radar chart
+                    categories = radar_data[category_col].tolist()
+                    values = radar_data[metric_col].tolist()
+                    
+                    # Add first value at end to close the radar
+                    categories.append(categories[0])
+                    values.append(values[0])
+                    
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatterpolar(
+                        r=values,
+                        theta=categories,
+                        fill='toself',
+                        name=metric_col,
+                        line_color=default_colors[0]
+                    ))
+                    
+                    fig.update_layout(
+                        polar=dict(
+                            radialaxis=dict(
+                                visible=True,
+                                range=[0, max(values[:-1])]
+                            )
+                        ),
+                        showlegend=False,
+                        title=f"Radar Chart: {metric_col} by {category_col}",
+                        template="plotly_white"
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("No categorical columns available for category comparison")
+        
         else:
-            st.warning("Need at least 2 numeric columns for radar chart")
+            st.warning("Need at least 3 numeric columns for radar chart")
 
 # Additional utility functions for advanced charts
 def create_waterfall_chart(df, category_col, value_col):
@@ -918,6 +1079,122 @@ def generate_distribution_chart(df, numeric_cols, cat_cols):
             st.plotly_chart(fig, use_container_width=True)
         except ImportError:
             st.error("scipy is required for Q-Q plots")
+    
+    elif chart_type == "normal":
+        col = st.selectbox("Select column", numeric_cols, key="normal_col")
+        try:
+            from scipy import stats
+            colors = get_chart_colors(2, ["#4C72B0", "#C44E52"], "normal")
+            
+            data = df[col].dropna()
+            fig = go.Figure()
+            
+            # Add histogram
+            fig.add_trace(go.Histogram(
+                x=data,
+                name="Data",
+                histnorm='probability density',
+                marker_color=colors[0],
+                opacity=0.7,
+                nbinsx=30
+            ))
+            
+            # Add normal distribution fit
+            mean, std = stats.norm.fit(data)
+            x_range = np.linspace(data.min(), data.max(), 100)
+            normal_dist = stats.norm.pdf(x_range, mean, std)
+            
+            fig.add_trace(go.Scatter(
+                x=x_range,
+                y=normal_dist,
+                name=f"Normal Fit (μ={mean:.2f}, σ={std:.2f})",
+                line=dict(color=colors[1], width=3)
+            ))
+            
+            fig.update_layout(
+                title=f"Normal Distribution Fit: {col}",
+                template="plotly_white",
+                xaxis_title=col,
+                yaxis_title="Density"
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Show goodness of fit statistics
+            st.write("### Goodness of Fit Statistics")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Mean", f"{mean:.4f}")
+            with col2:
+                st.metric("Std Dev", f"{std:.4f}")
+            with col3:
+                _, p_value = stats.normaltest(data)
+                st.metric("Normality p-value", f"{p_value:.4f}")
+                
+        except ImportError:
+            st.error("scipy is required for normal distribution analysis")
+    
+    elif chart_type == "distplot":
+        col = st.selectbox("Select column", numeric_cols, key="distplot_col")
+        try:
+            from scipy import stats
+            from scipy.stats import gaussian_kde
+            
+            colors = get_chart_colors(3, ["#4C72B0", "#55A868", "#C44E52"], "distplot")
+            data = df[col].dropna()
+            
+            fig = go.Figure()
+            
+            # Add histogram
+            fig.add_trace(go.Histogram(
+                x=data,
+                name="Histogram",
+                histnorm='probability density',
+                marker_color=colors[0],
+                opacity=0.6,
+                nbinsx=30
+            ))
+            
+            # Add KDE
+            kde = gaussian_kde(data)
+            x_range = np.linspace(data.min(), data.max(), 200)
+            kde_values = kde(x_range)
+            
+            fig.add_trace(go.Scatter(
+                x=x_range,
+                y=kde_values,
+                name="KDE",
+                line=dict(color=colors[1], width=2)
+            ))
+            
+            # Add rug plot
+            rug_y = np.zeros(len(data))
+            fig.add_trace(go.Scatter(
+                x=data,
+                y=rug_y,
+                mode='markers',
+                marker=dict(
+                    symbol='line-ns',
+                    size=8,
+                    color=colors[2],
+                    line=dict(width=1)
+                ),
+                name='Rug Plot',
+                opacity=0.8
+            ))
+            
+            fig.update_layout(
+                title=f"Distribution Plot: {col}",
+                template="plotly_white",
+                xaxis_title=col,
+                yaxis_title="Density"
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+        except ImportError:
+            st.error("scipy is required for distribution plots")
+    
     elif chart_type == "ecdf":
         col = st.selectbox("Select column", numeric_cols, key="ecdf_col")
         colors = get_chart_colors(1, ["#4C72B0"], "ecdf")
@@ -976,6 +1253,198 @@ def generate_categorical_chart(df, cat_cols, numeric_cols):
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("Need at least 2 categorical columns for sunburst chart")
+    
+    elif chart_type == "donut":
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            col = st.selectbox("Select categorical column", cat_cols, key="donut_col")
+        with col2:
+            use_custom_colors = st.checkbox("Custom Colors", key="donut_custom_colors")
+        
+        donut_df = df[col].value_counts().reset_index()
+        donut_df.columns = [col, "count"]
+        
+        if use_custom_colors:
+            unique_categories = donut_df[col].unique()
+            custom_colors = []
+            for i, cat in enumerate(unique_categories):
+                color = st.color_picker(f"Color for {cat}", default_colors[i % len(default_colors)], key=f"donut_color_{i}")
+                custom_colors.append(color)
+            fig = px.pie(donut_df, names=col, values="count", 
+                        color_discrete_sequence=custom_colors, hole=0.5)
+        else:
+            fig = px.pie(donut_df, names=col, values="count", 
+                        color_discrete_sequence=default_colors, hole=0.5)
+        fig.update_layout(title=f"Donut Chart of {col}", template="plotly_white")
+        st.plotly_chart(fig, use_container_width=True)
+    
+    elif chart_type == "count":
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            col = st.selectbox("Select categorical column", cat_cols, key="count_col")
+        with col2:
+            sort_order = st.selectbox("Sort order", ["Ascending", "Descending"], key="count_sort")
+        
+        count_df = df[col].value_counts().reset_index()
+        count_df.columns = [col, "count"]
+        
+        if sort_order == "Ascending":
+            count_df = count_df.sort_values("count", ascending=True)
+        
+        fig = px.bar(count_df, x=col, y="count", 
+                    color_discrete_sequence=default_colors)
+        fig.update_layout(title=f"Count Plot of {col}", template="plotly_white")
+        st.plotly_chart(fig, use_container_width=True)
+    
+    elif chart_type == "treemap":
+        if len(cat_cols) >= 1:
+            col1, col2 = st.columns(2)
+            with col1:
+                cat_col = st.selectbox("Select categorical column", cat_cols, key="tree_cat")
+            with col2:
+                size_col = st.selectbox("Select size column", numeric_cols + ["Count"], key="tree_size")
+            
+            if size_col == "Count":
+                tree_df = df[cat_col].value_counts().reset_index()
+                tree_df.columns = [cat_col, "count"]
+                fig = px.treemap(tree_df, path=[px.Constant("All"), cat_col], values="count",
+                               color_discrete_sequence=px.colors.qualitative.Set2)
+            else:
+                tree_df = df.groupby(cat_col)[size_col].sum().reset_index()
+                fig = px.treemap(tree_df, path=[px.Constant("All"), cat_col], values=size_col,
+                               color_discrete_sequence=px.colors.qualitative.Set2)
+            
+            fig.update_layout(title="Treemap Chart", template="plotly_white")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Need at least 1 categorical column for treemap")
+    
+    elif chart_type == "funnel":
+        col1, col2 = st.columns(2)
+        with col1:
+            cat_col = st.selectbox("Select categorical column", cat_cols, key="funnel_cat")
+        with col2:
+            value_col = st.selectbox("Select value column", numeric_cols + ["Count"], key="funnel_value")
+        
+        if value_col == "Count":
+            funnel_df = df[cat_col].value_counts().reset_index()
+            funnel_df.columns = [cat_col, "count"]
+            fig = px.funnel(funnel_df, x="count", y=cat_col,
+                           color_discrete_sequence=default_colors)
+        else:
+            funnel_df = df.groupby(cat_col)[value_col].sum().reset_index()
+            fig = px.funnel(funnel_df, x=value_col, y=cat_col,
+                           color_discrete_sequence=default_colors)
+        
+        fig.update_layout(title="Funnel Chart", template="plotly_white")
+        st.plotly_chart(fig, use_container_width=True)
+    
+    elif chart_type == "sankey":
+        if len(cat_cols) >= 2:
+            col1, col2 = st.columns(2)
+            with col1:
+                source_col = st.selectbox("Source column", cat_cols, key="sankey_source")
+            with col2:
+                target_col = st.selectbox("Target column", [c for c in cat_cols if c != source_col], key="sankey_target")
+            
+            # Create sankey data
+            sankey_df = df.groupby([source_col, target_col]).size().reset_index(name='value')
+            
+            # Get unique nodes
+            all_nodes = list(set(sankey_df[source_col].unique().tolist() + sankey_df[target_col].unique().tolist()))
+            node_dict = {node: i for i, node in enumerate(all_nodes)}
+            
+            # Create source and target indices
+            sankey_df['source_idx'] = sankey_df[source_col].map(node_dict)
+            sankey_df['target_idx'] = sankey_df[target_col].map(node_dict)
+            
+            fig = go.Figure(data=[go.Sankey(
+                node=dict(
+                    pad=15,
+                    thickness=20,
+                    line=dict(color="black", width=0.5),
+                    label=all_nodes,
+                    color=default_colors[:len(all_nodes)]
+                ),
+                link=dict(
+                    source=sankey_df['source_idx'].tolist(),
+                    target=sankey_df['target_idx'].tolist(),
+                    value=sankey_df['value'].tolist()
+                )
+            )])
+            
+            fig.update_layout(title="Sankey Diagram", template="plotly_white")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Need at least 2 categorical columns for sankey diagram")
+    
+    elif chart_type == "wordcloud":
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            text_col = st.selectbox("Select text column", cat_cols, key="wc_col")
+        with col2:
+            max_words = st.number_input("Max words", 10, 200, 100, key="wc_max")
+        
+        try:
+            from wordcloud import WordCloud
+            import matplotlib.pyplot as plt
+            
+            # Combine all text
+            text_data = ' '.join(df[text_col].astype(str).tolist())
+            
+            # Generate word cloud
+            wordcloud = WordCloud(width=800, height=400, background_color='white',
+                                max_words=max_words, colormap='viridis').generate(text_data)
+            
+            # Create matplotlib figure
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.imshow(wordcloud, interpolation='bilinear')
+            ax.axis('off')
+            ax.set_title(f'Word Cloud of {text_col}')
+            
+            st.pyplot(fig)
+        except ImportError:
+            st.error("WordCloud library not installed. Install with: pip install wordcloud")
+        except Exception as e:
+            st.error(f"Error generating word cloud: {str(e)}")
+    
+    elif chart_type == "pareto":
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            col = st.selectbox("Select categorical column", cat_cols, key="pareto_col")
+        with col2:
+            show_percentage = st.checkbox("Show percentage", True, key="pareto_pct")
+        
+        # Calculate frequencies and cumulative percentages
+        pareto_df = df[col].value_counts().reset_index()
+        pareto_df.columns = [col, "count"]
+        pareto_df['percentage'] = (pareto_df['count'] / pareto_df['count'].sum()) * 100
+        pareto_df['cumulative_percentage'] = pareto_df['percentage'].cumsum()
+        
+        # Create figure with secondary y-axis
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        
+        # Add bar chart
+        fig.add_trace(
+            go.Bar(x=pareto_df[col], y=pareto_df['count'], name="Count",
+                  marker_color=default_colors[0]),
+            secondary_y=False,
+        )
+        
+        # Add line chart for cumulative percentage
+        fig.add_trace(
+            go.Scatter(x=pareto_df[col], y=pareto_df['cumulative_percentage'], 
+                      mode='lines+markers', name="Cumulative %",
+                      line=dict(color=default_colors[1], width=3)),
+            secondary_y=True,
+        )
+        
+        # Set y-axes titles
+        fig.update_yaxes(title_text="Count", secondary_y=False)
+        fig.update_yaxes(title_text="Cumulative Percentage", secondary_y=True)
+        
+        fig.update_layout(title=f"Pareto Chart of {col}", template="plotly_white")
+        st.plotly_chart(fig, use_container_width=True)
 
 def generate_geospatial_chart(df, numeric_cols, cat_cols):
     """Generate geospatial charts"""
@@ -1073,7 +1542,7 @@ def generate_geospatial_chart(df, numeric_cols, cat_cols):
             fig = px.choropleth(
                 df,
                 locations=geo_col,
-                locationmode='country-names',
+                locationmode='country names',
                 color=value_col,
                 color_continuous_scale=color_scale,
                 title=f"{value_col} by {geo_col}"
@@ -1116,22 +1585,58 @@ def generate_geospatial_chart(df, numeric_cols, cat_cols):
             template="plotly_white"
         )
         st.plotly_chart(fig, use_container_width=True)
+    
+    elif chart_type == "satellite":
+        col1, col2 = st.columns(2)
+        with col1:
+            lat_col = st.selectbox("Latitude column", lat_cols, key="sat_lat")
         with col2:
-            lon_col = st.selectbox("Longitude column", lon_cols, key="map_lon")
-        with col3:
-            if numeric_cols:
-                size_col = st.selectbox("Size by", ["None"] + numeric_cols, key="map_size")
-            else:
-                size_col = "None"
+            lon_col = st.selectbox("Longitude column", lon_cols, key="sat_lon")
+        
+        # Center map on data
+        center_lat = df[lat_col].mean()
+        center_lon = df[lon_col].mean()
         
         fig = px.scatter_mapbox(
-            df, lat=lat_col, lon=lon_col,
-            size=size_col if size_col != "None" else None,
-            color_discrete_sequence=["#00c7b7"],
-            zoom=3,
-            mapbox_style="open-street-map"
+            df,
+            lat=lat_col,
+            lon=lon_col,
+            zoom=zoom_level,
+            mapbox_style="satellite-streets",  # Satellite view
+            center=dict(lat=center_lat, lon=center_lon)
         )
-        fig.update_layout(title="Scatter Map", template="plotly_white")
+        
+        fig.update_layout(
+            title="Satellite View Map",
+            template="plotly_white"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    
+    elif chart_type == "heatmap_geo":
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            lat_col = st.selectbox("Latitude column", lat_cols, key="heatgeo_lat")
+        with col2:
+            lon_col = st.selectbox("Longitude column", lon_cols, key="heatgeo_lon")
+        with col3:
+            value_col = st.selectbox("Value column", numeric_cols, key="heatgeo_val")
+        
+        # Create a density heatmap
+        fig = px.density_mapbox(
+            df,
+            lat=lat_col,
+            lon=lon_col,
+            z=value_col,
+            radius=20,
+            zoom=zoom_level,
+            mapbox_style=map_style,
+            color_continuous_scale="Viridis"
+        )
+        
+        fig.update_layout(
+            title=f"Geographic Heatmap of {value_col}",
+            template="plotly_white"
+        )
         st.plotly_chart(fig, use_container_width=True)
 
 def generate_relationship_chart(df, numeric_cols, cat_cols):
@@ -1343,8 +1848,9 @@ def generate_relationship_chart(df, numeric_cols, cat_cols):
                            trendline_options=dict(order=degree),
                            color_discrete_sequence=px.colors.qualitative.Set2)
         else:
+            trendline_type = "ols" if reg_type.lower() == "linear" else reg_type.lower()
             fig = px.scatter(df, x=x, y=y,
-                           trendline=reg_type.lower(),
+                           trendline=trendline_type,
                            color_discrete_sequence=px.colors.qualitative.Set2)
         
         fig.update_layout(title=f"{reg_type} Regression: {y} vs {x}",
@@ -1389,7 +1895,12 @@ def generate_timeseries_chart(df, numeric_cols, date_cols):
         fig.update_layout(title=f"Time Series: {value_col}", template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
     elif chart_type == "seasonal":
-        import statsmodels.api as sm
+        try:
+            import statsmodels.api as sm
+        except ImportError:
+            st.error("statsmodels library not installed. Install with: pip install statsmodels")
+            return
+        
         date_col = st.selectbox("Date column", date_cols, key="seasonal_date")
         value_col = st.selectbox("Value column", numeric_cols, key="seasonal_value")
         df[date_col] = pd.to_datetime(df[date_col])
@@ -1406,7 +1917,12 @@ def generate_timeseries_chart(df, numeric_cols, date_cols):
         except Exception as e:
             st.error(f"Decomposition failed: {e}")
     elif chart_type == "decomposition":
-        import statsmodels.api as sm
+        try:
+            import statsmodels.api as sm
+        except ImportError:
+            st.error("statsmodels library not installed. Install with: pip install statsmodels")
+            return
+        
         date_col = st.selectbox("Date column", date_cols, key="decomp_date")
         value_col = st.selectbox("Value column", numeric_cols, key="decomp_value")
         df[date_col] = pd.to_datetime(df[date_col])
@@ -1422,6 +1938,33 @@ def generate_timeseries_chart(df, numeric_cols, date_cols):
             st.pyplot(fig)
         except Exception as e:
             st.error(f"Decomposition failed: {e}")
+    elif chart_type == "seasonal_plot":
+        date_col = st.selectbox("Date column", date_cols, key="seasonal_plot_date")
+        value_col = st.selectbox("Value column", numeric_cols, key="seasonal_plot_value")
+        
+        # Convert to datetime
+        df[date_col] = pd.to_datetime(df[date_col])
+        df_sorted = df.sort_values(date_col).copy()
+        
+        # Extract seasonal components
+        df_sorted['month'] = df_sorted[date_col].dt.month
+        df_sorted['year'] = df_sorted[date_col].dt.year
+        
+        # Create seasonal plot
+        fig = px.line(df_sorted, x='month', y=value_col, color='year',
+                     title=f"Seasonal Plot of {value_col}",
+                     labels={'month': 'Month', value_col: value_col})
+        
+        # Update x-axis to show month names
+        fig.update_xaxes(
+            tickmode='array',
+            tickvals=list(range(1, 13)),
+            ticktext=['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        )
+        
+        fig.update_layout(template="plotly_white")
+        st.plotly_chart(fig, use_container_width=True)
     elif chart_type == "candlestick":
         date_col = st.selectbox("Date column", date_cols, key="candle_date")
         open_col = st.selectbox("Open column", numeric_cols, key="candle_open")
@@ -1432,7 +1975,12 @@ def generate_timeseries_chart(df, numeric_cols, date_cols):
         fig.update_layout(title="Candlestick Chart", template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
     elif chart_type == "forecast":
-        import statsmodels.api as sm
+        try:
+            import statsmodels.api as sm
+        except ImportError:
+            st.error("statsmodels library not installed. Install with: pip install statsmodels")
+            return
+        
         date_col = st.selectbox("Date column", date_cols, key="forecast_date")
         value_col = st.selectbox("Value column", numeric_cols, key="forecast_value")
         df[date_col] = pd.to_datetime(df[date_col])
@@ -1649,6 +2197,112 @@ def generate_animated_chart(df, numeric_cols, cat_cols, date_cols):
                 ],
                 "type": "buttons"
             }]
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    
+    elif chart_type == "animated_map":
+        # Check for geographical columns
+        lat_cols = [col for col in df.columns if 'lat' in col.lower() or 'latitude' in col.lower()]
+        lon_cols = [col for col in df.columns if 'lon' in col.lower() or 'longitude' in col.lower()]
+        
+        if not (lat_cols and lon_cols):
+            st.warning("Need latitude and longitude columns for animated map")
+            return
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            lat_col = st.selectbox("Latitude column", lat_cols, key="animmap_lat")
+            lon_col = st.selectbox("Longitude column", lon_cols, key="animmap_lon")
+            size_col = st.selectbox("Size by", ["None"] + numeric_cols, key="animmap_size")
+        with col2:
+            animation_col = st.selectbox("Animation frame", date_cols, key="animmap_frame")
+            color_col = st.selectbox("Color by", ["None"] + cat_cols + numeric_cols, key="animmap_color")
+        
+        # Ensure datetime type
+        if df[animation_col].dtype == 'object':
+            df[animation_col] = pd.to_datetime(df[animation_col])
+        
+        fig = px.scatter_mapbox(
+            df,
+            lat=lat_col,
+            lon=lon_col,
+            size=size_col if size_col != "None" else None,
+            color=color_col if color_col != "None" else None,
+            animation_frame=animation_col,
+            zoom=3,
+            mapbox_style="open-street-map",
+            color_continuous_scale="Viridis" if color_col in numeric_cols else None,
+            color_discrete_sequence=px.colors.qualitative.Set2 if color_col in cat_cols else None
+        )
+        
+        fig.update_layout(
+            title="Animated Map",
+            template="plotly_white",
+            updatemenus=[dict(
+                type="buttons",
+                showactive=False,
+                buttons=[dict(
+                    label="Play",
+                    method="animate",
+                    args=[None, dict(
+                        frame=dict(duration=800, redraw=True),
+                        fromcurrent=True,
+                        mode='immediate'
+                    )]
+                )]
+            )]
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    
+    elif chart_type == "racing":
+        col1, col2 = st.columns(2)
+        with col1:
+            cat_col = st.selectbox("Category", cat_cols, key="racing_cat")
+            value_col = st.selectbox("Value", numeric_cols, key="racing_val")
+        with col2:
+            time_col = st.selectbox("Time column", date_cols, key="racing_time")
+            top_n = st.number_input("Top N to show", 5, 20, 10, key="racing_top")
+        
+        # Ensure datetime type
+        if df[time_col].dtype == 'object':
+            df[time_col] = pd.to_datetime(df[time_col])
+        
+        # Get top categories by total value
+        top_categories = df.groupby(cat_col)[value_col].sum().nlargest(top_n).index
+        df_filtered = df[df[cat_col].isin(top_categories)].copy()
+        
+        # Create cumulative values
+        df_filtered = df_filtered.sort_values([time_col, cat_col])
+        df_filtered['cumulative'] = df_filtered.groupby(cat_col)[value_col].cumsum()
+        
+        fig = px.bar(
+            df_filtered,
+            x='cumulative',
+            y=cat_col,
+            orientation='h',
+            animation_frame=time_col,
+            color=cat_col,
+            range_x=[0, df_filtered['cumulative'].max()],
+            color_discrete_sequence=px.colors.qualitative.Set2
+        )
+        
+        fig.update_layout(
+            title="Racing Bar Chart",
+            template="plotly_white",
+            showlegend=False,
+            updatemenus=[dict(
+                type="buttons",
+                showactive=False,
+                buttons=[dict(
+                    label="Play",
+                    method="animate",
+                    args=[None, dict(
+                        frame=dict(duration=500, redraw=True),
+                        fromcurrent=True,
+                        mode='immediate'
+                    )]
+                )]
+            )]
         )
         st.plotly_chart(fig, use_container_width=True)
     # Removed duplicate animated_bar section

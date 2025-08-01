@@ -1,0 +1,394 @@
+[
+  {
+    "activity_type": "system_reset",
+    "description": "Dashboard statistics reset",
+    "status": "success",
+    "timestamp": "2025-08-01T14:29:50.797995",
+    "metadata": {}
+  },
+  {
+    "activity_type": "system_startup",
+    "description": "MLGenie dashboard tracking system initialized",
+    "status": "success",
+    "timestamp": "2025-08-01T14:29:50.798617",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T14:30:05.778944",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_uploaded",
+    "description": "Uploaded AmesHousing.csv for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T14:30:05.779659",
+    "metadata": {}
+  },
+  {
+    "activity_type": "feature_engineering",
+    "description": "Feature engineering operation",
+    "status": "success",
+    "timestamp": "2025-08-01T14:30:47.391197",
+    "metadata": {}
+  },
+  {
+    "activity_type": "auto_feature_engineering",
+    "description": "Applied 3 auto transformations",
+    "status": "success",
+    "timestamp": "2025-08-01T14:30:47.412899",
+    "metadata": {}
+  },
+  {
+    "activity_type": "system_startup",
+    "description": "MLGenie dashboard tracking system initialized",
+    "status": "success",
+    "timestamp": "2025-08-01T14:33:29.064755",
+    "metadata": {}
+  },
+  {
+    "activity_type": "system_startup",
+    "description": "MLGenie dashboard tracking system initialized",
+    "status": "success",
+    "timestamp": "2025-08-01T14:33:58.488511",
+    "metadata": {}
+  },
+  {
+    "activity_type": "system_startup",
+    "description": "MLGenie dashboard tracking system initialized",
+    "status": "success",
+    "timestamp": "2025-08-01T14:34:26.323831",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T14:34:48.599269",
+    "metadata": {}
+  },
+  {
+    "activity_type": "sample_data_loaded",
+    "description": "Loaded sample data for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T14:34:48.600782",
+    "metadata": {}
+  },
+  {
+    "activity_type": "system_startup",
+    "description": "MLGenie dashboard tracking system initialized",
+    "status": "success",
+    "timestamp": "2025-08-01T14:53:47.870984",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T14:53:54.670953",
+    "metadata": {}
+  },
+  {
+    "activity_type": "sample_data_loaded",
+    "description": "Loaded sample data for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T14:53:54.673539",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T14:55:58.411619",
+    "metadata": {}
+  },
+  {
+    "activity_type": "sample_data_loaded",
+    "description": "Loaded sample data for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T14:55:58.412878",
+    "metadata": {}
+  },
+  {
+    "activity_type": "system_startup",
+    "description": "MLGenie dashboard tracking system initialized",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:10.109972",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:15.606948",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_uploaded",
+    "description": "Uploaded AmesHousing.csv for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:15.609936",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:20.671078",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_uploaded",
+    "description": "Uploaded AmesHousing.csv for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:20.698905",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:27.576213",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_uploaded",
+    "description": "Uploaded AmesHousing.csv for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:27.590254",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:31.065822",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_uploaded",
+    "description": "Uploaded AmesHousing.csv for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:31.085738",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:32.305575",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_uploaded",
+    "description": "Uploaded AmesHousing.csv for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:32.327290",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:34.843423",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_uploaded",
+    "description": "Uploaded AmesHousing.csv for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:34.867243",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:35.917394",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_uploaded",
+    "description": "Uploaded AmesHousing.csv for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:35.935069",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:36.804681",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_uploaded",
+    "description": "Uploaded AmesHousing.csv for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:36.827153",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:37.658723",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_uploaded",
+    "description": "Uploaded AmesHousing.csv for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:37.682546",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:39.009799",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_uploaded",
+    "description": "Uploaded AmesHousing.csv for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:39.027669",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:40.690667",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_uploaded",
+    "description": "Uploaded AmesHousing.csv for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:40.714696",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:42.632154",
+    "metadata": {}
+  },
+  {
+    "activity_type": "sample_data_loaded",
+    "description": "Loaded sample data for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:42.657902",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:42.718507",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_uploaded",
+    "description": "Uploaded AmesHousing.csv for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:42.744168",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:45.759248",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_uploaded",
+    "description": "Uploaded AmesHousing.csv for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:45.777654",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:47.351327",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_uploaded",
+    "description": "Uploaded AmesHousing.csv for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:47.365697",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:59.221750",
+    "metadata": {}
+  },
+  {
+    "activity_type": "sample_data_loaded",
+    "description": "Loaded sample data for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:03:59.245406",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:06:28.145572",
+    "metadata": {}
+  },
+  {
+    "activity_type": "sample_data_loaded",
+    "description": "Loaded sample data for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:06:28.148420",
+    "metadata": {}
+  },
+  {
+    "activity_type": "system_startup",
+    "description": "MLGenie dashboard tracking system initialized",
+    "status": "success",
+    "timestamp": "2025-08-01T15:10:01.532079",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:10:04.148590",
+    "metadata": {}
+  },
+  {
+    "activity_type": "sample_data_loaded",
+    "description": "Loaded sample data for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:10:04.150003",
+    "metadata": {}
+  },
+  {
+    "activity_type": "dataset_upload",
+    "description": "New dataset uploaded and processed",
+    "status": "success",
+    "timestamp": "2025-08-01T15:10:47.930787",
+    "metadata": {}
+  },
+  {
+    "activity_type": "sample_data_loaded",
+    "description": "Loaded sample data for visualization",
+    "status": "success",
+    "timestamp": "2025-08-01T15:10:47.932199",
+    "metadata": {}
+  }
+]

@@ -5,4 +5,4 @@ from . import visualize
 from . import ML_training
 from . import DL_training
 from . import Feature_eng
-from . import modern_dashboard
+from . import dashboard

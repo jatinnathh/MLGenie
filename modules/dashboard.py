@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import json
 from typing import Dict, List
+from utils.global_dashboard_tracker import get_dashboard_stats, get_system_info, reset_dashboard_stats
 
 def init_session_stats():
     """Initialize session state statistics"""
@@ -565,6 +566,8 @@ def app():
     # Apply platform CSS
     st.markdown(get_platform_css(), unsafe_allow_html=True)
     
+   
+    
     # Add JavaScript to ensure sidebar controls are working
     st.markdown("""
     <script>
@@ -595,10 +598,11 @@ def app():
     """, unsafe_allow_html=True)
     
     # Get real stats from session state
-    stats = st.session_state.dashboard_stats
+    # Get real dashboard statistics from tracker
+    stats = get_dashboard_stats()
     
     # Key Metrics Section
-    st.markdown('<div class="section-header">Your Progress</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Progress</div>', unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -772,6 +776,9 @@ def app():
                 <p style="color: rgba(255, 255, 255, 0.7);">Use 'ML Training' or 'DL Training' to build predictive models.</p>
             </div>
             """, unsafe_allow_html=True)
+
+    # Debug section (expandable)
+   
 
 if __name__ == "__main__":
     app()

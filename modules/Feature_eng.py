@@ -7,6 +7,7 @@ import pickle
 import json
 from copy import deepcopy
 from datetime import datetime
+from utils.global_dashboard_tracker import track_feature_engineering, log_activity
 
 # Simple tracking without database
 TRACKING_AVAILABLE = False
@@ -579,6 +580,11 @@ def app():
                     st.session_state.df_feature_eng = df.copy()
                     st.session_state.auto_eng_completed = True
                     status_text.text("Auto-engineering completed!")
+                    
+                    # Track the feature engineering operation
+                    track_feature_engineering()
+                    log_activity("auto_feature_engineering", f"Applied {len(pipeline.transformations)} auto transformations")
+                    
                     st.success(f"Auto-engineering completed! Applied {len(pipeline.transformations)} transformations.")
                     st.info("All transformations have been saved to the pipeline for consistent prediction preprocessing.")
                     
@@ -629,6 +635,8 @@ def app():
                             else:
                                 df[col] = df[col].fillna(custom)
                             st.session_state.df_feature_eng = df.copy()
+                            track_feature_engineering()
+                            log_activity("missing_values_handled", f"Handled missing values in {col} using {method}")
                             st.success("Missing values handled successfully")
                         except Exception as e:
                             st.error(f"Error: {str(e)}")
@@ -645,6 +653,8 @@ def app():
                         else:
                             df[col] = df[col].astype(str)
                         st.session_state.df_feature_eng = df.copy()
+                        track_feature_engineering()
+                        log_activity("data_type_converted", f"Converted {col} to {new_type}")
                         st.success("Data type converted successfully")
                     except Exception as e:
                         st.error(f"Error: {str(e)}")

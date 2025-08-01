@@ -18,6 +18,7 @@ from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, mean_squared_error, mean_absolute_error, r2_score
 from sklearn.preprocessing import StandardScaler, LabelEncoder, MinMaxScaler
+from utils.global_dashboard_tracker import track_model_training, update_best_model, log_activity
 
 # Import feature engineering pipeline from Feature_eng module
 import sys
@@ -1860,6 +1861,10 @@ def app():
                         trained_models[model_name] = trained_model
                         st.success(f"{model_name} training completed!")
                         
+                        # Track the model training for dashboard
+                        track_model_training('ml')
+                        log_activity("ml_model_trained", f"Trained {model_name} model")
+                        
                         # Log model training activity
                         training_duration = results.get('Training Time (seconds)', 0)
                         log_model_training_activity(
@@ -1948,6 +1953,10 @@ def app():
         
         best_model_name = results_df.loc[best_model_idx, 'Model']
         best_score = results_df.loc[best_model_idx, best_metric]
+        
+        # Update best model in dashboard tracker
+        update_best_model(best_model_name, best_metric, float(best_score))
+        log_activity("best_model_identified", f"Best model: {best_model_name} ({best_metric}: {best_score})")
         
         # Champion model display
         st.markdown(f"""
